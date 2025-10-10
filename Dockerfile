@@ -33,8 +33,12 @@ COPY --from=builder /app/minecraft-exchange .
 COPY --chown=65534:65534 static/ static/
 COPY --chown=65534:65534 templates/ templates/
 
-# 复制初始数据库文件（如果存在），直接使用nobody用户，避免额外创建用户的开销
-COPY --chown=65534:65534 minecraft_exchange.db* ./ 2>/dev/null || true
+# 复制初始数据库文件（如果存在），使用RUN命令和shell语法处理可能不存在的情况
+    RUN --mount=type=bind,source=.,target=/source \
+        if [ -f /source/minecraft_exchange.db ]; then \
+            cp -a /source/minecraft_exchange.db* ./ && \
+            chown -R 65534:65534 *.db*; \
+        fi
 
 # 切换到nobody用户（已存在的非root用户），避免创建新用户
 USER nobody
