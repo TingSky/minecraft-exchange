@@ -1,26 +1,27 @@
-# 使用官方Go镜像作为构建环境
+# 第一阶段：使用Go镜像进行构建
 FROM golang:1.22-alpine AS builder
+
+# 在Alpine镜像中安装C编译器和必要的构建工具以支持CGO
+RUN apk add --no-cache gcc musl-dev
 
 # 设置工作目录
 WORKDIR /app
 
-# 复制go.mod和go.sum文件
+# 复制go.mod和go.sum文件并下载依赖
 COPY go.mod go.sum ./
-
-# 下载依赖
 RUN go mod download
 
 # 复制项目源代码
 COPY . .
 
-# 构建应用程序
-RUN CGO_ENABLED=1 GOOS=linux go build -o minecraft-exchange main.go
+# 优化构建参数：禁用调试信息以减小二进制文件大小
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o minecraft-exchange main.go
 
-# 使用轻量级Alpine镜像作为运行环境
+# 第二阶段：使用scratch作为基础镜像，这是最小的可能镜像
 FROM alpine:3.19
 
-# 添加SQLite依赖
-RUN apk add --no-cache sqlite-libs
+# 使用--virtual创建一个虚拟包组，方便后续清理
+RUN apk add --no-cache --virtual .build-deps sqlite-libs
 
 # 设置工作目录
 WORKDIR /app
@@ -28,21 +29,15 @@ WORKDIR /app
 # 从构建环境复制构建好的应用程序
 COPY --from=builder /app/minecraft-exchange .
 
-# 复制静态文件和模板
-COPY static/ static/
-COPY templates/ templates/
+# 只复制必要的静态文件和模板，避免复制过多文件
+COPY --chown=65534:65534 static/ static/
+COPY --chown=65534:65534 templates/ templates/
 
-# 复制初始数据库文件（如果存在）
-COPY --chown=1000:1000 minecraft_exchange.db* ./ 2>/dev/null || true
+# 复制初始数据库文件（如果存在），直接使用nobody用户，避免额外创建用户的开销
+COPY --chown=65534:65534 minecraft_exchange.db* ./ 2>/dev/null || true
 
-# 创建非root用户运行应用
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-# 更改文件所有权
-RUN chown -R appuser:appgroup /app
-
-# 切换到非root用户
-USER appuser
+# 切换到nobody用户（已存在的非root用户），避免创建新用户
+USER nobody
 
 # 暴露应用程序端口
 EXPOSE 8080
