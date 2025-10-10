@@ -26,6 +26,9 @@ RUN apk add --no-cache --virtual .build-deps sqlite-libs
 # 设置工作目录
 WORKDIR /app
 
+# 创建数据目录并设置权限
+RUN mkdir -p /app/data && chown -R 65534:65534 /app/data
+
 # 从构建环境复制构建好的应用程序
 COPY --from=builder /app/minecraft-exchange .
 
@@ -34,11 +37,11 @@ COPY --chown=65534:65534 static/ static/
 COPY --chown=65534:65534 templates/ templates/
 
 # 复制初始数据库文件（如果存在），使用RUN命令和shell语法处理可能不存在的情况
-    RUN --mount=type=bind,source=.,target=/source \
-        if [ -f /source/minecraft_exchange.db ]; then \
-            cp -a /source/minecraft_exchange.db* ./ && \
-            chown -R 65534:65534 *.db*; \
-        fi
+RUN --mount=type=bind,source=.,target=/source \
+    if [ -f /source/minecraft_exchange.db ]; then \
+        cp -a /source/minecraft_exchange.db* /app/data/ && \
+        chown -R 65534:65534 /app/data/*.db*; \
+    fi
 
 # 切换到nobody用户（已存在的非root用户），避免创建新用户
 USER nobody
@@ -46,8 +49,8 @@ USER nobody
 # 暴露应用程序端口
 EXPOSE 8080
 
-# 设置环境变量，配置数据库路径
-ENV DATABASE_PATH=/app/minecraft_exchange.db
+# 设置环境变量，配置数据库路径为数据目录下，确保nobody用户有写权限
+ENV DATABASE_PATH=/app/data/minecraft_exchange.db
 
 # 设置入口点
 CMD ["./minecraft-exchange"]
