@@ -310,9 +310,6 @@ body {
 	opacity: 0.9;
 }
 
-.task-card.upcoming .task-header {
-	background-color: rgba(155, 89, 182, 0.1);
-}
 
 .task-card.upcoming .minecraft-btn.disabled {
 	background-color: #7f8c8d;
@@ -356,16 +353,7 @@ body {
 	border-color: #c0392b;
 }
 
-/* 时间元素特殊样式 - 基于难度样式但略有区别 */
-.task-start {
-	font-size: 0.85em;
-	color: #7f8c8d;
-}
 
-.task-expiry {
-	font-size: 0.85em;
-	color: #95a5a6;
-}
 
 /* 时间元素包装样式 */
 .task-start-wrapper,

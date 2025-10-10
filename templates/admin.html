@@ -66,6 +66,10 @@
 						<label for="task-reward">奖励绿宝石：</label>
 						<input type="number" id="task-reward" name="reward" min="1" required>
 					</div>
+					<div class="form-group" id="start-time-group" style="display: none;">
+						<label for="task-start-time">开始时间：</label>
+						<input type="datetime-local" id="task-start-time" name="start_time">
+					</div>
 					<div class="form-group" id="expiry-group" style="display: none;">
 						<label for="task-expiry">截止时间：</label>
 						<input type="datetime-local" id="task-expiry" name="expiry_time">
@@ -84,15 +88,55 @@
 			document.addEventListener('DOMContentLoaded', function() {
 				const taskTypeSelect = document.getElementById('task-type');
 				const expiryGroup = document.getElementById('expiry-group');
+				const startTimeGroup = document.getElementById('start-time-group');
 				const repeatDaysGroup = document.getElementById('repeat-days-group');
 				
 				function updateFormFields() {
 					if (taskTypeSelect.value === 'daily') {
 						repeatDaysGroup.style.display = 'block';
 						expiryGroup.style.display = 'none';
+						startTimeGroup.style.display = 'none';
 					} else if (taskTypeSelect.value === 'limited') {
 						repeatDaysGroup.style.display = 'none';
 						expiryGroup.style.display = 'block';
+						startTimeGroup.style.display = 'block';
+						// 设置默认时间值
+						setDefaultDateTimeValues();
+					}
+				}
+				
+				// 设置默认的开始时间和截止时间（考虑中国时区 UTC+8）
+				function setDefaultDateTimeValues() {
+					const now = new Date();
+					// 计算UTC时间与中国时间(UTC+8)的时差（毫秒）
+					const timezoneOffset = 8 * 60 * 60 * 1000; // UTC+8
+					const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+					const chinaTime = new Date(utcTime + timezoneOffset);
+					
+					// 创建当天和明天的日期对象（中国时区）
+					const today = new Date(chinaTime.getFullYear(), chinaTime.getMonth(), chinaTime.getDate());
+					const tomorrow = new Date(chinaTime.getFullYear(), chinaTime.getMonth(), chinaTime.getDate() + 1);
+					
+					// 格式化为 datetime-local 格式 (YYYY-MM-DDTHH:mm)，确保正确显示中国时区时间
+					const formatDateForInput = (date) => {
+						const year = date.getFullYear();
+						const month = String(date.getMonth() + 1).padStart(2, '0');
+						const day = String(date.getDate()).padStart(2, '0');
+						return `${year}-${month}-${day}T00:00`;
+					};
+					
+					const todayStartStr = formatDateForInput(today);
+					const todayEndStr = formatDateForInput(tomorrow);
+					
+					const startTimeInput = document.getElementById('task-start-time');
+					const expiryInput = document.getElementById('task-expiry');
+					
+					// 只有在没有值的情况下才设置默认值
+					if (startTimeInput && !startTimeInput.value) {
+						startTimeInput.value = todayStartStr;
+					}
+					if (expiryInput && !expiryInput.value) {
+						expiryInput.value = todayEndStr;
 					}
 				}
 				

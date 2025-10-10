@@ -120,7 +120,7 @@
 								{{if eq .Difficulty "easy"}}简单{{else if eq .Difficulty "medium"}}中等{{else if eq .Difficulty "hard"}}困难{{end}}
 							</span>
 						</div>
-						<div class="task-start-expiry">
+						<div class="task-details">
 							<span class="task-start minecraft-time">开始时间: {{.CreatedAt.Format "2006-01-02 15:04:05"}}</span>
 							<span class="task-expiry minecraft-time" data-expiry="{{.ExpiryTime}}">截止时间: {{.ExpiryTime}}</span>
 						</div>
