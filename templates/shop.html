@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>兑换商店 - 我的世界任务积分兑换系统</title>
+	<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+	<div class="minecraft-container">
+		<header class="minecraft-header">
+			<h1 class="minecraft-title">兑换商店</h1>
+			<div class="player-info">
+				<span>玩家: {{.PlayerName}}</span>
+				<div class="emerald-display">
+					<img src="/static/images/image.png" alt="绿宝石">
+					<span class="emerald-count">{{.Emeralds}}</span>
+				</div>
+			</div>
+		</header>
+
+		<nav class="minecraft-nav">
+			<a href="/" class="nav-link">首页</a>
+			<a href="/tasks" class="nav-link">任务中心</a>
+			<a href="/shop" class="nav-link active">兑换商店</a>
+			<a href="/admin" class="nav-link">村民管理</a>
+		</nav>
+
+		<main class="minecraft-main">
+			<section class="shop-section">
+				<h2 class="section-title">可兑换物品</h2>
+				<div class="item-grid">
+					{{range .Items}}
+					<div class="item-card">
+						<div class="item-image">
+							<img src="/static/images/item_{{.ID}}.svg" alt="{{.Name}}" onError="this.src='/static/images/default_item.svg'">
+						</div>
+						<div class="item-info">
+							<h3>{{.Name}}</h3>
+							<p class="item-description">{{.Description}}</p>
+							<div class="item-cost">
+								<img src="/static/images/image.png" alt="绿宝石">
+								<span>{{.Cost}}</span>
+							</div>
+							<div class="item-stock">
+								库存: {{.Stock}}
+							</div>
+							<div class="item-expiry">
+								有效期至: {{.ExpiryTime}}
+							</div>
+						</div>
+						<form action="/exchange" method="post" class="item-action">
+							<input type="hidden" name="item_id" value="{{.ID}}">
+							<button type="submit" class="minecraft-btn" {{if lt $.Emeralds .Cost}}disabled{{end}} onclick="return confirm('确认要兑换此物品吗？')">
+								{{if lt $.Emeralds .Cost}}绿宝石不足{{else}}立即兑换{{end}}
+							</button>
+						</form>
+					</div>
+					{{end}}
+					{{if not .Items}}
+					<div class="no-items">
+						<p>当前商店暂无物品</p>
+					</div>
+					{{end}}
+				</div>
+			</section>
+		</main>
+
+		<footer class="minecraft-footer">
+			<p>我的世界任务积分兑换系统 &copy; {{.Year}} - 为学习提供正向反馈</p>
+		</footer>
+	</div>
+</body>
+</html>

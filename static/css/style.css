@@ -1,0 +1,793 @@
+/* Minecraft 风格的样式表 */
+
+/* 全局样式 */
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+body {
+	font-family: 'Minecraft', Arial, sans-serif;
+	background-color: #8B4513;
+	background-image: url('../images/stone.png');
+	color: #FFFFFF;
+	line-height: 1.6;
+}
+
+/* Minecraft 容器 */
+.minecraft-container {
+	max-width: 1200px;
+	margin: 0 auto;
+	background-color: #3D3D3D;
+	border: 4px solid #555555;
+	border-radius: 2px;
+	box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+/* 页眉样式 */
+.minecraft-header {
+	background-color: #228B22;
+	background-image: url('https://zh.minecraft.wiki/images/Header-background.png?d1569');
+	background-repeat: repeat-x;
+	padding: 20px;
+	border-bottom: 4px solid #006400;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.minecraft-title {
+	font-size: 28px;
+	text-shadow: 3px 3px 0 #000000;
+	font-weight: bold;
+}
+
+.player-info {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+}
+
+.player-info span {
+	font-size: 18px;
+	font-weight: bold;
+}
+
+.emerald-display {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	background-color: #006400;
+	padding: 8px 12px;
+	border: 2px solid #008000;
+	border-radius: 4px;
+}
+
+.emerald-display img {
+	width: 24px;
+	height: 24px;
+}
+
+.emerald-count {
+	font-size: 20px;
+	font-weight: bold;
+	color: #00FF00;
+}
+
+.admin-label {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	background-color: #8B4513;
+	padding: 8px 16px;
+	border: 2px solid #A0522D;
+	border-radius: 4px;
+}
+
+.admin-label img {
+	width: 32px;
+	height: 32px;
+}
+
+/* 导航栏样式 */
+.minecraft-nav {
+	background-color: #4D4D4D;
+	border-bottom: 4px solid #2D2D2D;
+	display: flex;
+	gap: 1px;
+}
+
+.nav-link {
+	color: #FFFFFF;
+	text-decoration: none;
+	padding: 12px 20px;
+	font-size: 16px;
+	font-weight: bold;
+	transition: background-color 0.3s;
+	border-right: 1px solid #2D2D2D;
+}
+
+.nav-link:hover {
+	background-color: #6D6D6D;
+}
+
+.nav-link.active {
+	background-color: #228B22;
+	border-bottom: 4px solid #00FF00;
+}
+
+/* 主要内容区域 */
+.minecraft-main {
+	padding: 20px;
+}
+
+/* 欢迎区域 */
+.welcome-section {
+	text-align: center;
+	margin-bottom: 30px;
+}
+
+.banner-image {
+	max-width: 100%;
+	height: auto;
+	border: 4px solid #555555;
+	margin-bottom: 20px;
+}
+
+.welcome-text {
+	font-size: 18px;
+	color: #CCCCCC;
+	max-width: 800px;
+	margin: 0 auto;
+}
+
+/* 功能卡片 */
+.feature-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	gap: 20px;
+	margin-bottom: 30px;
+}
+
+.feature-card {
+	background-color: #2D2D2D;
+	border: 4px solid #555555;
+	padding: 20px;
+	text-align: center;
+	text-decoration: none;
+	color: #FFFFFF;
+	transition: transform 0.3s, border-color 0.3s;
+}
+
+.feature-card:hover {
+	transform: translateY(-5px);
+	border-color: #228B22;
+}
+
+.feature-card img {
+	width: 80px;
+	height: 80px;
+	margin-bottom: 15px;
+}
+
+.feature-card h3 {
+	font-size: 20px;
+	margin-bottom: 10px;
+}
+
+.admin-card {
+	border-color: #8B4513;
+}
+
+.admin-card:hover {
+	border-color: #A0522D;
+}
+
+/* 游戏提示 */
+.game-tips {
+	background-color: #1A1A1A;
+	border: 4px solid #333333;
+	padding: 20px;
+}
+
+.game-tips h3 {
+	font-size: 20px;
+	margin-bottom: 15px;
+	color: #FFFF00;
+}
+
+.game-tips ul {
+	list-style-type: none;
+}
+
+.game-tips li {
+	padding: 8px 0;
+	padding-left: 20px;
+	position: relative;
+}
+
+.game-tips li:before {
+	content: "▶";
+	position: absolute;
+	left: 0;
+	color: #00FF00;
+}
+
+/* 任务和商店区域 */
+.task-section,
+.shop-section,
+.admin-section {
+	margin-bottom: 30px;
+}
+
+.section-title {
+	font-size: 24px;
+	margin-bottom: 20px;
+	color: #FFFF00;
+	text-shadow: 2px 2px 0 #000000;
+	border-bottom: 2px solid #FFFF00;
+	padding-bottom: 10px;
+}
+
+/* 任务网格 */
+.task-grid,
+.item-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+	gap: 20px;
+}
+
+/* 任务卡片 */
+.task-card {
+	background-color: #2D2D2D;
+	border: 4px solid #555555;
+	padding: 20px;
+}
+
+.task-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 15px;
+}
+
+.task-header h3 {
+	font-size: 18px;
+	color: #FFFFFF;
+}
+
+.task-reward {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	background-color: #006400;
+	padding: 5px 10px;
+	border: 2px solid #008000;
+	border-radius: 4px;
+}
+
+.task-reward img {
+	width: 16px;
+	height: 16px;
+}
+
+.task-description {
+	color: #CCCCCC;
+	margin-bottom: 15px;
+}
+
+.task-details {
+	display: flex;
+	gap: 15px;
+	margin-bottom: 15px;
+	font-size: 14px;
+}
+
+.task-type,
+.task-difficulty,
+.task-expiry {
+	background-color: #4D4D4D;
+	padding: 3px 8px;
+	border-radius: 4px;
+}
+
+.task-action,
+.item-action {
+	text-align: right;
+}
+
+
+
+.task-card.claimed {
+	border-color: #f39c12;
+	opacity: 0.8;
+}
+
+.task-card.upcoming {
+	border-color: #9b59b6;
+	background-color: rgba(155, 89, 182, 0.05);
+	opacity: 0.9;
+}
+
+.task-card.upcoming .task-header {
+	background-color: rgba(155, 89, 182, 0.1);
+}
+
+.task-card.upcoming .minecraft-btn.disabled {
+	background-color: #7f8c8d;
+	cursor: not-allowed;
+}
+
+.task-card.upcoming .minecraft-btn.disabled:hover {
+	background-color: #7f8c8d;
+	transform: none;
+}
+
+.task-start-time {
+	color: #7f8c8d;
+	font-size: 0.9em;
+	display: block;
+	margin-top: 5px;
+}
+
+/* 任务标签通用样式 */
+.task-type,
+.task-difficulty,
+.task-start,
+.task-expiry {
+	display: inline-block;
+	background-color: #4D4D4D;
+	padding: 3px 8px;
+	border-radius: 4px;
+	font-family: 'Minecraft', Arial, sans-serif;
+}
+
+/* 任务难度样式 */
+.difficulty-easy {
+	border-color: #00FF00;
+}
+
+.difficulty-medium {
+	border-color: #FFFF00;
+}
+
+.difficulty-hard {
+	border-color: #c0392b;
+}
+
+/* 时间元素特殊样式 - 基于难度样式但略有区别 */
+.task-start {
+	font-size: 0.85em;
+	color: #7f8c8d;
+}
+
+.task-expiry {
+	font-size: 0.85em;
+	color: #95a5a6;
+}
+
+/* 时间元素包装样式 */
+.task-start-wrapper,
+.task-expiry-wrapper {
+	display: block;
+	margin-top: 5px;
+}
+
+.no-tasks,
+.no-items {
+	grid-column: 1 / -1;
+	text-align: center;
+	padding: 40px;
+	color: #999999;
+	font-size: 18px;
+}
+
+/* 物品卡片 */
+.item-card {
+	background-color: #2D2D2D;
+	border: 4px solid #555555;
+	padding: 20px;
+	display: flex;
+	gap: 15px;
+}
+
+.item-image {
+	flex-shrink: 0;
+}
+
+.item-image img {
+	width: 80px;
+	height: 80px;
+}
+
+.item-info {
+	flex: 1;
+}
+
+.item-info h3 {
+	font-size: 18px;
+	margin-bottom: 10px;
+}
+
+.item-description {
+	color: #CCCCCC;
+	margin-bottom: 10px;
+}
+
+.item-cost {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	margin-bottom: 10px;
+}
+
+.item-cost img {
+	width: 16px;
+	height: 16px;
+}
+
+.item-stock,
+.item-expiry {
+	font-size: 14px;
+	color: #999999;
+	margin-bottom: 5px;
+}
+
+/* 按钮样式 */
+.minecraft-btn {
+	background-color: #228B22;
+	color: #FFFFFF;
+	border: 2px solid #00FF00;
+	padding: 10px 20px;
+	font-size: 16px;
+	font-weight: bold;
+	cursor: pointer;
+	transition: background-color 0.3s;
+	text-transform: uppercase;
+}
+
+.minecraft-btn:hover {
+	background-color: #008000;
+}
+
+.minecraft-btn:disabled {
+	background-color: #666666;
+	border-color: #999999;
+	cursor: not-allowed;
+}
+
+.minecraft-btn.small {
+	padding: 5px 10px;
+	font-size: 14px;
+}
+
+.delete-btn {
+	background-color: #8B0000;
+	border-color: #FF0000;
+}
+
+.delete-btn:hover {
+	background-color: #660000;
+}
+
+.create-task-btn {
+	background-color: #4169E1;
+	border-color: #0000FF;
+}
+
+.create-task-btn:hover {
+	background-color: #1E90FF;
+}
+
+/* 表格样式 */
+.task-table,
+.exchange-table {
+	background-color: #1A1A1A;
+	border: 4px solid #333333;
+	overflow-x: auto;
+}
+
+.task-table table,
+.exchange-table table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.task-table th,
+.task-table td,
+.exchange-table th,
+.exchange-table td {
+	padding: 12px;
+	text-align: left;
+	border: 1px solid #444444;
+}
+
+.task-table th,
+.exchange-table th {
+	background-color: #333333;
+	font-weight: bold;
+}
+
+.task-table tr:nth-child(even),
+.exchange-table tr:nth-child(even) {
+	background-color: #2A2A2A;
+}
+
+.status-available {
+	color: #00FF00;
+}
+
+.status-claimed {
+	color: #FFFF00;
+}
+
+.status-completed {
+	color: #0000FF;
+}
+
+.status-verified {
+	color: #FF69B4;
+}
+
+/* 管理员操作 */
+.admin-actions {
+	margin-bottom: 20px;
+}
+
+/* 页脚样式 */
+.minecraft-footer {
+	background-color: #2D2D2D;
+	padding: 20px;
+	text-align: center;
+	border-top: 4px solid #555555;
+	color: #999999;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+	.minecraft-header {
+		flex-direction: column;
+		gap: 15px;
+	}
+
+	.minecraft-nav {
+		flex-wrap: wrap;
+	}
+
+	.nav-link {
+		flex: 1;
+		text-align: center;
+	}
+
+	.task-grid,
+	.item-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.item-card {
+		flex-direction: column;
+		text-align: center;
+	}
+
+	.task-details {
+		flex-direction: column;
+		gap: 5px;
+	}
+}
+
+/* 模态框样式 */
+.modal {
+	display: none; /* 默认隐藏 */
+	position: fixed;
+	z-index: 1000;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+	background-color: rgba(0,0,0,0.8);
+}
+
+.modal-content {
+	background-color: #2D2D2D;
+	margin: 10% auto;
+	padding: 30px;
+	border: 4px solid #555555;
+	width: 100%;
+	max-width: 600px;
+	position: relative;
+}
+
+.modal-title {
+	font-size: 24px;
+	margin-bottom: 20px;
+	color: #FFFF00;
+	text-shadow: 2px 2px 0 #000000;
+}
+
+.close-modal {
+	position: absolute;
+	top: 20px;
+	right: 30px;
+	color: #AAAAAA;
+	font-size: 32px;
+	font-weight: bold;
+	cursor: pointer;
+}
+
+.close-modal:hover,
+.close-modal:focus {
+	color: #FFFFFF;
+	text-decoration: none;
+}
+
+.create-btn {
+	background-color: #228B22;
+	border-color: #00FF00;
+}
+
+.create-btn:hover {
+	background-color: #008000;
+}
+
+.cancel-btn {
+	background-color: #666666;
+	border-color: #999999;
+	margin-left: 10px;
+}
+
+.cancel-btn:hover {
+	background-color: #888888;
+}
+
+/* 登录页面样式 */
+.login-section {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-height: 400px;
+}
+
+.login-form {
+	background-color: #2D2D2D;
+	border: 4px solid #555555;
+	padding: 40px;
+	width: 100%;
+	max-width: 400px;
+	text-align: center;
+}
+
+.form-group {
+	margin-bottom: 20px;
+	text-align: left;
+}
+
+.form-group label {
+	display: block;
+	margin-bottom: 8px;
+	font-weight: bold;
+	color: #FFFFFF;
+}
+
+.form-group input {
+	width: 100%;
+	padding: 12px;
+	background-color: #4D4D4D;
+	border: 2px solid #555555;
+	color: #FFFFFF;
+	font-size: 16px;
+	font-family: 'Minecraft', Arial, sans-serif;
+}
+
+.form-group input:focus {
+	outline: none;
+	border-color: #00FF00;
+}
+
+/* textarea 样式 */
+.form-group textarea {
+	width: 100%;
+	padding: 12px;
+	background-color: #4D4D4D;
+	border: 2px solid #555555;
+	color: #FFFFFF;
+	font-size: 16px;
+	font-family: 'Minecraft', Arial, sans-serif;
+	resize: vertical;
+	min-height: 100px;
+}
+
+.form-group textarea:focus {
+	outline: none;
+	border-color: #00FF00;
+}
+
+/* 复选框组样式 */
+.checkbox-group {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+	gap: 12px;
+	margin-top: 8px;
+}
+
+.checkbox-group label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: normal;
+	cursor: pointer;
+	font-size: 14px;
+	transition: color 0.3s;
+}
+
+.checkbox-group label:hover {
+	color: #00FF00;
+}
+
+.checkbox-group input[type="checkbox"] {
+	width: auto;
+	margin: 0;
+	accent-color: #228B22;
+}
+
+/* select 样式 */
+.form-group select {
+	width: 100%;
+	padding: 12px;
+	background-color: #4D4D4D;
+	border: 2px solid #555555;
+	color: #FFFFFF;
+	font-size: 16px;
+	font-family: 'Minecraft', Arial, sans-serif;
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	position: relative;
+}
+
+/* 为select添加自定义下拉箭头 */
+.form-group select {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+	background-repeat: no-repeat;
+	background-position: right 12px center;
+	background-size: 20px;
+	padding-right: 45px;
+}
+
+.form-group select:focus {
+	outline: none;
+	border-color: #00FF00;
+}
+
+.form-group select:disabled {
+	background-color: #666666;
+	cursor: not-allowed;
+	opacity: 0.7;
+}
+
+.form-actions {
+	margin-top: 30px;
+}
+
+.login-btn {
+	width: 100%;
+	padding: 12px;
+	font-size: 18px;
+	background-color: #8B4513;
+	border-color: #A0522D;
+}
+
+.login-btn:hover {
+	background-color: #A0522D;
+}
+
+.error-message {
+	background-color: #8B0000;
+	color: #FFFFFF;
+	padding: 10px;
+	margin-bottom: 20px;
+	border: 2px solid #FF0000;
+	border-radius: 4px;
+}

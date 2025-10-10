@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>我的世界任务积分兑换系统</title>
+	<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+	<div class="minecraft-container">
+		<header class="minecraft-header">
+			<h1 class="minecraft-title">我的世界任务积分兑换系统</h1>
+			<div class="player-info">
+				<span>玩家: {{.PlayerName}}</span>
+				<div class="emerald-display">
+					<img src="/static/images/image.png" alt="绿宝石">
+					<span class="emerald-count">{{.Emeralds}}</span>
+				</div>
+			</div>
+		</header>
+
+		<main class="minecraft-main">
+			<div class="welcome-section">
+				<img src="/static/images/image.png" alt="Minecraft Banner" class="banner-image">
+				<p class="welcome-text">欢迎来到我的世界任务积分兑换系统！在这里，你可以完成任务获得绿宝石，并用绿宝石兑换喜欢的奖励！</p>
+			</div>
+
+			<div class="feature-cards">
+				<a href="/tasks" class="feature-card">
+					<img src="/static/images/task-icon.svg" alt="任务">
+					<h3>任务中心</h3>
+					<p>查看和完成任务，获得绿宝石奖励</p>
+				</a>
+				<a href="/shop" class="feature-card">
+					<img src="/static/images/shop-icon.svg" alt="商店">
+					<h3>兑换商店</h3>
+					<p>用绿宝石兑换喜欢的奖励</p>
+				</a>
+				<a href="/admin" class="feature-card admin-card">
+					<img src="/static/images/admin-icon.svg" alt="管理">
+					<h3>村民管理</h3>
+					<p>家长管理任务和查看兑换记录</p>
+				</a>
+			</div>
+
+			<div class="game-tips">
+				<h3>游戏提示</h3>
+				<ul>
+					<li>完成日常任务可以每天获得绿宝石</li>
+					<li>困难任务可以获得更多绿宝石</li>
+					<li>限时任务有额外奖励，不要错过</li>
+					<li>合理规划绿宝石，兑换喜欢的奖励</li>
+				</ul>
+			</div>
+		</main>
+
+		<footer class="minecraft-footer">
+			<p>我的世界任务积分兑换系统 &copy; {{.Year}} - 为学习提供正向反馈</p>
+		</footer>
+	</div>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>管理员登录 - 我的世界任务积分兑换系统</title>
+	<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+	<div class="minecraft-container">
+		<header class="minecraft-header">
+			<h1 class="minecraft-title">管理员登录</h1>
+			<div class="admin-label">
+				<img src="/static/images/admin-icon.svg" alt="村民">
+				<span>请输入密码</span>
+			</div>
+		</header>
+
+		<main class="minecraft-main">
+			<section class="login-section">
+				<div class="login-form">
+					{{if .Error}}
+					<p class="error-message">{{.Error}}</p>
+					{{end}}
+					<form action="/login" method="post">
+						<div class="form-group">
+							<label for="password">管理员密码：</label>
+							<input type="password" id="password" name="password" required>
+						</div>
+						<div class="form-actions">
+							<button type="submit" class="minecraft-btn login-btn">登录</button>
+						</div>
+					</form>
+				</div>
+			</section>
+		</main>
+
+		<footer class="minecraft-footer">
+			<p>我的世界任务积分兑换系统 &copy; {{.Year}} - 为学习提供正向反馈</p>
+		</footer>
+	</div>
+</body>
+</html>

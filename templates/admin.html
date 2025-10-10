@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>村民管理 - 我的世界任务积分兑换系统</title>
+	<link rel="stylesheet" href="/static/css/style.css">
+		<script>
+			// 格式化日期时间函数
+			function formatDateTime(dateTimeStr) {
+				const date = new Date(dateTimeStr);
+				const year = date.getFullYear();
+				const month = String(date.getMonth() + 1).padStart(2, '0');
+				const day = String(date.getDate()).padStart(2, '0');
+				const hours = String(date.getHours()).padStart(2, '0');
+				const minutes = String(date.getMinutes()).padStart(2, '0');
+				const seconds = String(date.getSeconds()).padStart(2, '0');
+				return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+			}
+		</script>
+	</head>
+<body>
+	<div class="minecraft-container">
+		<!-- 创建任务模态框 - 简化版 -->
+		<div id="createTaskModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8);">
+			<div class="modal-content" style="background-color: #2D2D2D; margin: 10% auto; padding: 30px; border: 4px solid #555555; width: 100%; max-width: 600px; position: relative;">
+				<span class="close-modal" onclick="hideCreateTaskModal()" style="position: absolute; top: 20px; right: 30px; color: #AAAAAA; font-size: 32px; font-weight: bold; cursor: pointer;">&times;</span>
+				<h2 class="modal-title">创建新任务</h2>
+				<form id="createTaskForm" action="/create-task" method="post">
+					<div class="form-group">
+						<label for="task-title">任务标题：</label>
+						<input type="text" id="task-title" name="title" required>
+					</div>
+					<div class="form-group">
+						<label for="task-description">任务描述：</label>
+						<textarea id="task-description" name="description" rows="3"></textarea>
+					</div>
+					<div class="form-group">
+						<label for="task-difficulty">难度：</label>
+						<select id="task-difficulty" name="difficulty" required>
+							<option value="easy">简单</option>
+							<option value="medium">中等</option>
+							<option value="hard">困难</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label for="task-type">类型：</label>
+						<select id="task-type" name="type" required>
+							<option value="daily">日常任务</option>
+							<option value="limited">限时任务</option>
+						</select>
+					</div>
+					<div class="form-group" id="repeat-days-group" style="display: none;">
+						<label>重复周期（每周几）：</label>
+						<div class="checkbox-group">
+							<label><input type="checkbox" name="repeat_days" value="1"> 周一</label>
+							<label><input type="checkbox" name="repeat_days" value="2"> 周二</label>
+							<label><input type="checkbox" name="repeat_days" value="3"> 周三</label>
+							<label><input type="checkbox" name="repeat_days" value="4"> 周四</label>
+							<label><input type="checkbox" name="repeat_days" value="5"> 周五</label>
+							<label><input type="checkbox" name="repeat_days" value="6"> 周六</label>
+							<label><input type="checkbox" name="repeat_days" value="0"> 周日</label>
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="task-reward">奖励绿宝石：</label>
+						<input type="number" id="task-reward" name="reward" min="1" required>
+					</div>
+					<div class="form-group" id="expiry-group" style="display: none;">
+						<label for="task-expiry">截止时间：</label>
+						<input type="datetime-local" id="task-expiry" name="expiry_time">
+					</div>
+					<div class="form-actions">
+						<button type="submit" class="minecraft-btn create-btn">创建任务</button>
+						<button type="button" class="minecraft-btn cancel-btn" onclick="hideCreateTaskModal()">取消</button>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<!-- 简单的模态框控制脚本 -->
+		<script>
+			// 控制重复周期和截止时间字段的显示/隐藏
+			document.addEventListener('DOMContentLoaded', function() {
+				const taskTypeSelect = document.getElementById('task-type');
+				const expiryGroup = document.getElementById('expiry-group');
+				const repeatDaysGroup = document.getElementById('repeat-days-group');
+				
+				function updateFormFields() {
+					if (taskTypeSelect.value === 'daily') {
+						repeatDaysGroup.style.display = 'block';
+						expiryGroup.style.display = 'none';
+					} else if (taskTypeSelect.value === 'limited') {
+						repeatDaysGroup.style.display = 'none';
+						expiryGroup.style.display = 'block';
+					}
+				}
+				
+				// 初始加载时更新
+				updateFormFields();
+				
+				// 监听类型变化
+				taskTypeSelect.addEventListener('change', updateFormFields);
+			});
+			
+			// 日期格式转换函数 - 将ISO格式转换为系统默认格式
+			function convertDateFormat(isoDateStr) {
+				if (!isoDateStr) return '';
+				
+				// 创建日期对象
+				const date = new Date(isoDateStr);
+				
+				// 提取年、月、日、时、分、秒
+				const year = date.getFullYear();
+				const month = String(date.getMonth() + 1).padStart(2, '0');
+				const day = String(date.getDate()).padStart(2, '0');
+				const hours = String(date.getHours()).padStart(2, '0');
+				const minutes = String(date.getMinutes()).padStart(2, '0');
+				const seconds = String(date.getSeconds()).padStart(2, '0');
+				
+				// 返回系统默认格式：YYYY-MM-DD HH:mm:ss
+				return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+			}
+
+			function showCreateTaskModal() {
+				console.log('显示创建任务模态框');
+				var modal = document.getElementById('createTaskModal');
+				if (modal) {
+					modal.style.display = 'block';
+					console.log('模态框显示状态:', modal.style.display);
+				} else {
+					console.log('未找到模态框元素');
+				}
+			}
+
+			function hideCreateTaskModal() {
+				console.log('隐藏创建任务模态框');
+				var modal = document.getElementById('createTaskModal');
+				if (modal) {
+					modal.style.display = 'none';
+				}
+			}
+
+			// 点击模态框外部关闭
+			window.addEventListener('click', function(event) {
+				var modal = document.getElementById('createTaskModal');
+				if (event.target === modal) {
+					hideCreateTaskModal();
+				}
+			});
+
+			// 为创建任务表单添加提交处理和任务类型变更监听
+			document.addEventListener('DOMContentLoaded', function() {
+				const createTaskForm = document.getElementById('createTaskForm');
+				const taskTypeSelect = document.getElementById('task-type');
+				const expiryGroup = document.getElementById('expiry-group');
+				const expiryInput = document.getElementById('task-expiry');
+				
+				// 设置默认截止时间为当前时间加1小时
+				function setDefaultExpiryTime() {
+					const now = new Date();
+					now.setHours(now.getHours() + 1);
+					// 格式化日期为datetime-local所需的格式
+					const formattedDate = now.toISOString().slice(0, 16);
+					expiryInput.value = formattedDate;
+				}
+				
+				// 监听任务类型变化
+				if (taskTypeSelect && expiryGroup) {
+					taskTypeSelect.addEventListener('change', function() {
+						if (this.value === 'limited') {
+							expiryGroup.style.display = 'block';
+							// 如果是限时任务且截止时间为空，设置默认值
+							if (!expiryInput.value) {
+								setDefaultExpiryTime();
+							}
+						} else {
+							expiryGroup.style.display = 'none';
+							// 清空截止时间
+							expiryInput.value = '';
+						}
+					});
+					
+					// 初始化显示状态
+					if (taskTypeSelect.value !== 'limited') {
+						expiryGroup.style.display = 'none';
+					} else {
+						expiryGroup.style.display = 'block';
+						setDefaultExpiryTime();
+					}
+				}
+				
+				// 表单提交处理
+				if (createTaskForm) {
+					createTaskForm.addEventListener('submit', function(e) {
+						const taskType = document.getElementById('task-type').value;
+						const expiryInput = document.getElementById('task-expiry');
+						 
+						// 检查是否是限时任务
+						if (taskType === 'limited') {
+							// 限时任务必须有截止时间
+							if (!expiryInput.value) {
+								alert('限时任务必须设置截止时间！');
+								e.preventDefault();
+								return;
+							}
+							
+							// 创建一个隐藏的输入字段来存储转换后的日期格式
+							let formattedExpiryInput = document.getElementById('formatted-expiry-time');
+							if (!formattedExpiryInput) {
+								formattedExpiryInput = document.createElement('input');
+								formattedExpiryInput.type = 'hidden';
+								formattedExpiryInput.id = 'formatted-expiry-time';
+								formattedExpiryInput.name = 'expiry_time';
+								createTaskForm.appendChild(formattedExpiryInput);
+							}
+							 
+							// 设置转换后的日期格式
+							formattedExpiryInput.value = convertDateFormat(expiryInput.value);
+							 
+							// 移除原输入字段的name属性，避免重复提交
+							expiryInput.removeAttribute('name');
+							expiryInput.name = 'original_expiry_time';
+						} else {
+							// 非限时任务，确保不提交截止时间
+							expiryInput.removeAttribute('name');
+						}
+						 
+						console.log('表单提交中，日期格式已处理...');
+					});
+				}
+			});
+		</script>
+
+		<header class="minecraft-header">
+			<h1 class="minecraft-title">村民管理中心</h1>
+			<div class="admin-label">
+				<img src="/static/images/admin-icon.svg" alt="村民">
+				<span>管理员模式</span>
+			</div>
+		</header>
+
+		<nav class="minecraft-nav">
+			<a href="/" class="nav-link">首页</a>
+			<a href="/tasks" class="nav-link">任务中心</a>
+			<a href="/shop" class="nav-link">兑换商店</a>
+			<a href="/admin" class="nav-link active">村民管理</a>
+		</nav>
+
+		<main class="minecraft-main">
+			<section class="admin-section">
+				<h2 class="section-title">任务模板管理</h2>
+				<div class="admin-actions">
+					<button class="minecraft-btn create-task-btn" onclick="showCreateTaskModal()">创建新任务模板</button>
+				</div>
+				<div class="task-table">
+					<table>
+						<thead>
+							<tr>
+								<th>模板ID</th>
+								<th>标题</th>
+								<th>难度</th>
+								<th>类型</th>
+								<th>奖励</th>
+								<th>重复周期</th>
+								<th>操作</th>
+							</tr>
+						</thead>
+						<tbody>
+							{{range .TaskTemplates}}
+							<tr>
+								<td>{{.ID}}</td>
+								<td>{{.Title}}</td>
+								<td>
+									{{if eq .Difficulty "easy"}}简单{{else if eq .Difficulty "medium"}}中等{{else if eq .Difficulty "hard"}}困难{{end}}
+								</td>
+								<td>
+									{{if eq .Type "daily"}}日常任务{{else if eq .Type "limited"}}限时任务{{end}}
+								</td>
+								<td>{{.Reward}}</td>
+								<td>{{.RepeatDays}}</td>
+								<td>
+									<form action="/delete-task-template" method="post" style="display: inline;">
+										<input type="hidden" name="template_id" value="{{.ID}}">
+										<button type="submit" class="minecraft-btn small delete-btn">删除模板</button>
+									</form>
+								</td>
+							</tr>
+							{{end}}
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section class="admin-section">
+				<h2 class="section-title">任务实例管理</h2>
+				<div class="admin-actions">
+				</div>
+				<div class="task-table">
+					<table>
+						<thead>
+							<tr>
+								<th>ID</th>
+								<th>标题</th>
+								<th>难度</th>
+								<th>类型</th>
+								<th>奖励</th>
+								<th>状态</th>
+								<th>截止时间</th>
+								<th>操作</th>
+							</tr>
+						</thead>
+						<tbody>
+							{{range .Tasks}}
+							<tr>
+								<td>{{.ID}}</td>
+								<td>{{.Title}}</td>
+								<td>
+									{{if eq .Difficulty "easy"}}简单{{else if eq .Difficulty "medium"}}中等{{else if eq .Difficulty "hard"}}困难{{end}}
+								</td>
+								<td>
+									{{if eq .Type "daily"}}日常任务{{else if eq .Type "limited"}}限时任务{{end}}
+								</td>
+								<td>{{.Reward}}</td>
+								<td>
+									<span class="status-{{.Status}}">
+										{{if eq .Status "available"}}可领取{{else if eq .Status "claimed"}}已领取{{else if eq .Status "completed"}}已完成{{else if eq .Status "verified"}}已确认{{end}}
+									</span>
+								</td>
+								<td>{{.ExpiryTime}}</td>
+								<td>
+									{{if eq .Status "completed"}}
+									<form action="/verify-task" method="post" style="display: inline;">
+										<input type="hidden" name="task_id" value="{{.ID}}">
+										<button type="submit" class="minecraft-btn small">确认完成</button>
+									</form>
+									{{end}}
+									<form action="/delete-task" method="post" style="display: inline;">
+										<input type="hidden" name="task_id" value="{{.ID}}">
+										<button type="submit" class="minecraft-btn small delete-btn">删除</button>
+									</form>
+								</td>
+							</tr>
+							{{end}}
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section class="admin-section">
+				<h2 class="section-title">兑换记录</h2>
+				<div class="exchange-table">
+					<table>
+						<thead>
+							<tr>
+								<th>ID</th>
+								<th>玩家ID</th>
+								<th>物品ID</th>
+								<th>物品名称</th>
+								<th>消耗绿宝石</th>
+								<th>兑换时间</th>
+							</tr>
+						</thead>
+						<tbody>
+							{{range .ExchangeRecords}}
+							<tr>
+								<td>{{.ID}}</td>
+								<td>{{.PlayerID}}</td>
+								<td>{{.ItemID}}</td>
+								<td>{{.ItemName}}</td>
+								<td>{{.Cost}}</td>
+								<td><script>document.write(formatDateTime('{{.Timestamp}}'))</script></td>
+							</tr>
+							{{end}}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<footer class="minecraft-footer">
+			<p>我的世界任务积分兑换系统 &copy; {{.Year}} - 为学习提供正向反馈</p>
+		</footer>
+	</div>
+
+
+</body>
+</html>

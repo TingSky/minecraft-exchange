@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>任务中心 - 我的世界任务积分兑换系统</title>
+	<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+	<div class="minecraft-container">
+		<header class="minecraft-header">
+			<h1 class="minecraft-title">任务中心</h1>
+			<div class="player-info">
+				<span>玩家: {{.PlayerName}}</span>
+				<div class="emerald-display">
+					<img src="/static/images/image.png" alt="绿宝石">
+					<span class="emerald-count">{{.Emeralds}}</span>
+				</div>
+			</div>
+		</header>
+
+		<nav class="minecraft-nav">
+			<a href="/" class="nav-link">首页</a>
+			<a href="/tasks" class="nav-link active">任务中心</a>
+			<a href="/shop" class="nav-link">兑换商店</a>
+			<a href="/admin" class="nav-link">村民管理</a>
+		</nav>
+
+		<main class="minecraft-main">
+			<section class="task-section">
+				<h2 class="section-title">可领取任务</h2>
+				<div class="task-grid">
+					{{range .Tasks}}
+					<div class="task-card difficulty-{{.Difficulty}}">
+						<div class="task-header">
+							<h3>{{.Title}}</h3>
+							<div class="task-reward">
+								<img src="/static/images/image.png" alt="绿宝石">
+								<span>{{.Reward}}</span>
+							</div>
+						</div>
+						<p class="task-description">{{.Description}}</p>
+						<div class="task-details">
+							<span class="task-type">
+								{{if eq .Type "daily"}}日常任务{{else if eq .Type "limited"}}限时任务{{end}}
+							</span>
+							<span class="task-difficulty">
+								{{if eq .Difficulty "easy"}}简单{{else if eq .Difficulty "medium"}}中等{{else if eq .Difficulty "hard"}}困难{{end}}
+							</span>
+							<span class="task-expiry minecraft-time" data-expiry="{{.ExpiryTime}}">截止: {{.ExpiryTime}}</span>
+						</div>
+						<form action="/claim-task" method="post" class="task-action">
+							<input type="hidden" name="task_id" value="{{.ID}}">
+							<button type="submit" class="minecraft-btn">领取任务</button>
+						</form>
+					</div>
+					{{end}}
+					{{if not .Tasks}}
+					<div class="no-tasks">
+						<p>当前没有可领取的任务</p>
+					</div>
+					{{end}}
+				</div>
+			</section>
+
+			<section class="task-section">
+				<h2 class="section-title">我的任务</h2>
+				<div class="task-grid">
+					{{range .ClaimedTasks}}
+					<div class="task-card claimed">
+						<div class="task-header">
+							<h3>{{.Title}}</h3>
+							<div class="task-reward">
+								<img src="/static/images/image.png" alt="绿宝石">
+								<span>{{.Reward}}</span>
+							</div>
+						</div>
+						<p class="task-description">{{.Description}}</p>
+						<div class="task-details">
+							<span class="task-type">
+								{{if eq .Type "daily"}}日常任务{{else if eq .Type "limited"}}限时任务{{end}}
+							</span>
+							<span class="task-difficulty">
+								{{if eq .Difficulty "easy"}}简单{{else if eq .Difficulty "medium"}}中等{{else if eq .Difficulty "hard"}}困难{{end}}
+							</span>
+							<span class="task-expiry minecraft-time" data-expiry="{{.ExpiryTime}}">截止: {{.ExpiryTime}}</span>
+						</div>
+						<form action="/complete-task" method="post" class="task-action">
+							<input type="hidden" name="task_id" value="{{.ID}}">
+							<button type="submit" class="minecraft-btn">提交完成</button>
+						</form>
+					</div>
+					{{end}}
+					{{if not .ClaimedTasks}}
+					<div class="no-tasks">
+						<p>你还没有领取任何任务</p>
+					</div>
+					{{end}}
+				</div>
+			</section>
+
+			<section class="task-section">
+				<h2 class="section-title">即将开始的任务</h2>
+				<div class="task-grid">
+					{{range .UpcomingTasks}}
+					<div class="task-card upcoming difficulty-{{.Difficulty}}">
+						<div class="task-header">
+							<h3>{{.Title}}</h3>
+							<div class="task-reward">
+								<img src="/static/images/image.png" alt="绿宝石">
+								<span>{{.Reward}}</span>
+							</div>
+						</div>
+						<p class="task-description">{{.Description}}</p>
+						<div class="task-details">
+							<span class="task-type">
+								{{if eq .Type "daily"}}日常任务{{else if eq .Type "limited"}}限时任务{{end}}
+							</span>
+							<span class="task-difficulty">
+								{{if eq .Difficulty "easy"}}简单{{else if eq .Difficulty "medium"}}中等{{else if eq .Difficulty "hard"}}困难{{end}}
+							</span>
+						</div>
+						<div class="task-start-expiry">
+							<span class="task-start minecraft-time">开始时间: {{.CreatedAt.Format "2006-01-02 15:04:05"}}</span>
+							<span class="task-expiry minecraft-time" data-expiry="{{.ExpiryTime}}">截止时间: {{.ExpiryTime}}</span>
+						</div>
+						<div class="task-action">
+							<button type="button" class="minecraft-btn disabled">任务未开始</button>
+						</div>
+					</div>
+					{{end}}
+					{{if not .UpcomingTasks}}
+					<div class="no-tasks">
+						<p>当前没有即将开始的任务</p>
+					</div>
+					{{end}}
+				</div>
+			</section>
+
+		</main>
+
+		<footer class="minecraft-footer">
+			<p>我的世界任务积分兑换系统 &copy; {{.Year}} - 为学习提供正向反馈</p>
+		</footer>
+	</div>
+</body>
+</html>
