@@ -104,21 +104,21 @@ func main() {
 // 初始化数据库
 func initDB() {
 	var err error
-	// 检查数据库文件是否存在
-	_, err = os.Stat("minecraft_exchange.db")
-	if os.IsNotExist(err) {
-		// 创建数据库文件
-		file, err := os.Create("minecraft_exchange.db")
-		if err != nil {
-			log.Fatal("无法创建数据库文件:", err)
-		}
-		file.Close()
-	}
-
 	// 从环境变量获取数据库路径，默认为./minecraft_exchange.db
 	dbPath := os.Getenv("DATABASE_PATH")
 	if dbPath == "" {
 		dbPath = "./minecraft_exchange.db"
+	}
+
+	// 检查数据库文件是否存在
+	_, err = os.Stat(dbPath)
+	if os.IsNotExist(err) {
+		// 创建数据库文件
+		file, err := os.Create(dbPath)
+		if err != nil {
+			log.Fatal("无法创建数据库文件:", err)
+		}
+		file.Close()
 	}
 	
 	// 连接数据库
