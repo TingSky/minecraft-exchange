@@ -367,8 +367,7 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 		tasks = append(tasks, task)
 	}
 
-	// 获取玩家已领取任务
-	claimedRows, err := db.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, created_at FROM tasks WHERE status IN ('claimed', 'completed') AND player_id = 1 ORDER BY updated_at DESC")
+	// 获取玩家已领取任务（包含状态字段）	claimedRows, err := db.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, created_at, status FROM tasks WHERE status IN ('claimed', 'completed') AND player_id = 1 ORDER BY updated_at DESC")
 	if err != nil {
 		log.Println("查询已领取任务失败:", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
@@ -379,7 +378,7 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	var claimedTasks []Task
 	for claimedRows.Next() {
 		var task Task
-		err := claimedRows.Scan(&task.ID, &task.Title, &task.Description, &task.Difficulty, &task.Type, &task.Reward, &task.ExpiryTime, &task.CreatedAt)
+		err := claimedRows.Scan(&task.ID, &task.Title, &task.Description, &task.Difficulty, &task.Type, &task.Reward, &task.ExpiryTime, &task.CreatedAt, &task.Status)
 		if err != nil {
 			log.Println("扫描已领取任务数据失败:", err)
 			continue
@@ -848,6 +847,7 @@ func completeTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	if status != "claimed" || playerID != 1 {
+		log.Printf("任务提交验证失败: ID=%s, 状态=%s, 玩家ID=%d", taskID, status, playerID)
 		http.Error(w, "你不能提交此任务", http.StatusBadRequest)
 		return
 	}
@@ -867,6 +867,9 @@ func completeTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
+	
+	// 记录成功日志
+	log.Printf("任务提交成功: ID=%s, 状态已更新为completed", taskID)
 	
 	// 提交成功后重定向回任务页面
 	http.Redirect(w, r, "/tasks", http.StatusFound)

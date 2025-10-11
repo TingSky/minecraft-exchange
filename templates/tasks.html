@@ -85,10 +85,16 @@
 							</span>
 							<span class="task-expiry minecraft-time" data-expiry="{{.ExpiryTime}}">截止: {{.ExpiryTime}}</span>
 						</div>
+						{{if eq .Status "claimed"}}
 						<form action="/complete-task" method="post" class="task-action">
 							<input type="hidden" name="task_id" value="{{.ID}}">
 							<button type="submit" class="minecraft-btn">提交完成</button>
 						</form>
+						{{else if eq .Status "completed"}}
+						<div class="task-status completed">
+							<span>已提交，等待确认</span>
+						</div>
+						{{end}}
 					</div>
 					{{end}}
 					{{if not .ClaimedTasks}}
