@@ -27,9 +27,9 @@ type Task struct {
 	ExpiryTime  string
 	Status      string // available, claimed, completed, verified
 	PlayerID    *int
-	RepeatDays  string // 用于存储日常任务的重复周期，格式为逗号分隔的星期几，如"1,2,3,4,5"
-	TemplateID  *int   // 关联的任务模板ID
-	CreatedAt   time.Time // 创建时间，用于显示即将开始的任务的开始时间
+	TemplateID  *int      // 关联的任务模板ID
+	CreatedAt   time.Time // 创建时间
+	StartTime   string    // 任务开始时间
 }
 
 // 任务模板结构体
@@ -63,6 +63,7 @@ type ExchangeRecord struct {
 	ItemName  string
 	Cost      int
 	Timestamp string
+	Exchanged bool
 }
 
 var db *sql.DB
@@ -73,7 +74,6 @@ func main() {
 
 	// 启动日常任务自动刷新机制
 	go startDailyTaskRefresh()
-
 	// 设置静态文件服务
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
@@ -82,7 +82,7 @@ func main() {
 	http.HandleFunc("/create-task", createTaskHandler)
 	// 测试创建任务页面处理器
 	http.HandleFunc("/test-create-task", testCreateTaskHandler)
-	
+
 	// 路由设置
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/tasks", tasksHandler)
@@ -95,6 +95,7 @@ func main() {
 	http.HandleFunc("/claim-task", claimTaskHandler)
 	http.HandleFunc("/complete-task", completeTaskHandler)
 	http.HandleFunc("/verify-task", verifyTaskHandler)
+	http.HandleFunc("/admin/exchange-reward", exchangeRewardHandler)
 
 	// 启动服务器
 	fmt.Println("服务器已启动，访问 http://localhost:8080")
@@ -120,7 +121,7 @@ func initDB() {
 		}
 		file.Close()
 	}
-	
+
 	// 连接数据库
 	db, err = sql.Open("sqlite3", dbPath)
 	if err != nil {
@@ -152,8 +153,10 @@ func createTables() {
 			type TEXT NOT NULL,
 			reward INTEGER NOT NULL,
 			expiry_time TEXT,
+			start_time TEXT,
 			status TEXT DEFAULT 'available',
 			player_id INTEGER,
+			template_id INTEGER,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (player_id) REFERENCES players(id)
@@ -204,7 +207,7 @@ func initSampleData() {
 		}
 
 		// 插入任务数据
-	tasks := []struct {
+		tasks := []struct {
 			title       string
 			description string
 			difficulty  string
@@ -347,8 +350,11 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 获取当前时间
+	currentTime := time.Now().Format("2006-01-02 15:04:05")
+
 	// 获取可用任务
-	rows, err := db.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, created_at FROM tasks WHERE status = 'available' ORDER BY created_at DESC")
+	rows, err := db.Query(`SELECT id, title, description, difficulty, type, reward, expiry_time, created_at, start_time FROM tasks WHERE status = 'available' AND ((start_time IS NULL OR start_time <= ?) AND expiry_time > ?) ORDER BY created_at DESC`, currentTime, currentTime)
 	if err != nil {
 		log.Println("查询任务失败:", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
@@ -359,16 +365,26 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	var tasks []Task
 	for rows.Next() {
 		var task Task
-		err := rows.Scan(&task.ID, &task.Title, &task.Description, &task.Difficulty, &task.Type, &task.Reward, &task.ExpiryTime, &task.CreatedAt)
+		var startTime sql.NullString
+		err := rows.Scan(&task.ID, &task.Title, &task.Description, &task.Difficulty, &task.Type, &task.Reward, &task.ExpiryTime, &task.CreatedAt, &startTime)
 		if err != nil {
 			log.Println("扫描任务数据失败:", err)
 			continue
+		}
+		if startTime.Valid {
+			task.StartTime = startTime.String
 		}
 		tasks = append(tasks, task)
 	}
 
 	// 获取玩家已领取任务（包含状态字段）
-	claimedRows, err := db.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, created_at, status FROM tasks WHERE status IN ('claimed', 'completed') AND player_id = 1 ORDER BY updated_at DESC")
+	playerID, err := getFirstPlayerID()
+	if err != nil {
+		log.Println("获取玩家ID失败:", err)
+		http.Error(w, "服务器错误", http.StatusInternalServerError)
+		return
+	}
+	claimedRows, err := db.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, created_at, start_time, status FROM tasks WHERE status IN ('claimed', 'completed') AND player_id = ? ORDER BY updated_at DESC", playerID)
 	if err != nil {
 		log.Println("查询已领取任务失败:", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
@@ -379,23 +395,23 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	var claimedTasks []Task
 	for claimedRows.Next() {
 		var task Task
-		err := claimedRows.Scan(&task.ID, &task.Title, &task.Description, &task.Difficulty, &task.Type, &task.Reward, &task.ExpiryTime, &task.CreatedAt, &task.Status)
+		var startTime sql.NullString
+		err := claimedRows.Scan(&task.ID, &task.Title, &task.Description, &task.Difficulty, &task.Type, &task.Reward, &task.ExpiryTime, &task.CreatedAt, &startTime, &task.Status)
 		if err != nil {
 			log.Println("扫描已领取任务数据失败:", err)
 			continue
 		}
+		if startTime.Valid {
+			task.StartTime = startTime.String
+		}
+		// 添加日志记录任务状态
+		log.Printf("任务ID: %d, 标题: %s, 状态: %s", task.ID, task.Title, task.Status)
 		claimedTasks = append(claimedTasks, task)
 	}
 
 	// 获取玩家信息
 	var playerName string
 	var emeralds int
-	playerID, err := getFirstPlayerID()
-	if err != nil {
-		log.Println("获取玩家ID失败:", err)
-		http.Error(w, "服务器错误", http.StatusInternalServerError)
-		return
-	}
 	err = db.QueryRow("SELECT name, emeralds FROM players WHERE id = ?", playerID).Scan(&playerName, &emeralds)
 	if err != nil {
 		log.Println("查询玩家信息失败:", err)
@@ -403,14 +419,8 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 获取即将开始的任务（未来24小时内开始，但现在还不能领取）
-	upcomingRows, err := db.Query(`
-		SELECT id, title, description, difficulty, type, reward, expiry_time, created_at 
-		FROM tasks 
-		WHERE status = 'available' 
-		AND datetime(created_at) > datetime('now') 
-		ORDER BY created_at ASC
-	`)
+	// 获取即将开始的任务（尚未开始的任务）
+	upcomingRows, err := db.Query(`SELECT id, title, description, difficulty, type, reward, expiry_time, created_at, start_time FROM tasks WHERE status = 'available' AND start_time > ? ORDER BY start_time ASC`, currentTime)
 	var upcomingTasks []Task
 	if err != nil {
 		log.Println("查询即将开始任务失败:", err)
@@ -419,38 +429,26 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 
 		for upcomingRows.Next() {
 			var task Task
-			err := upcomingRows.Scan(&task.ID, &task.Title, &task.Description, &task.Difficulty, &task.Type, &task.Reward, &task.ExpiryTime, &task.CreatedAt)
+			var startTime sql.NullString
+			err := upcomingRows.Scan(&task.ID, &task.Title, &task.Description, &task.Difficulty, &task.Type, &task.Reward, &task.ExpiryTime, &task.CreatedAt, &startTime)
 			if err != nil {
 				log.Println("扫描即将开始任务数据失败:", err)
 				continue
 			}
+			if startTime.Valid {
+				task.StartTime = startTime.String
+			}
 			upcomingTasks = append(upcomingTasks, task)
 		}
-
-		// 从可领取任务中移除即将开始的任务
-		availableTasks := []Task{}
-		for _, task := range tasks {
-			isUpcoming := false
-			for _, upcoming := range upcomingTasks {
-				if task.ID == upcoming.ID {
-					isUpcoming = true
-					break
-				}
-			}
-			if !isUpcoming {
-				availableTasks = append(availableTasks, task)
-			}
-		}
-		tasks = availableTasks
 	}
 
 	// 准备传递给模板的数据
 	data := map[string]interface{}{
-		"PlayerName":   playerName,
-		"Emeralds":     emeralds,
-		"Tasks":        tasks,
+		"PlayerName":    playerName,
+		"Emeralds":      emeralds,
+		"Tasks":         tasks,
 		"UpcomingTasks": upcomingTasks,
-		"ClaimedTasks": claimedTasks,
+		"ClaimedTasks":  claimedTasks,
 	}
 
 	// 执行模板渲染
@@ -620,12 +618,12 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		// 获取输入的密码
 		password := r.FormValue("password")
-		
+
 		// 验证密码（写死为190830zyc）
 		if password == "190830zyc" {
 			// 生成会话令牌
-		sessionToken := generateSecureToken(32)
-			
+			sessionToken := generateSecureToken(32)
+
 			// 设置Cookie，有效期为7天
 			cookie := http.Cookie{
 				Name:     "session_token",
@@ -636,7 +634,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 				Secure:   false, // 在生产环境中应设为true（使用HTTPS）
 			}
 			http.SetCookie(w, &cookie)
-			
+
 			// 登录成功后重定向到管理页面
 			http.Redirect(w, r, "/admin", http.StatusFound)
 			return
@@ -651,7 +649,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	
+
 	// GET请求，显示登录页面
 	data := map[string]interface{}{
 		"Year": time.Now().Year(),
@@ -670,18 +668,18 @@ func testCreateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	
+
 	tmpl, err := template.ParseFiles("templates/test-create-task.html")
 	if err != nil {
 		http.Error(w, "无法加载模板", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 传递数据到模板
 	data := map[string]interface{}{
 		"Year": time.Now().Year(),
 	}
-	
+
 	tmpl.Execute(w, data)
 }
 
@@ -694,20 +692,20 @@ func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	
+
 	// 确保是POST请求
 	if r.Method != "POST" {
 		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	// 获取任务ID
 	taskID := r.FormValue("task_id")
 	if taskID == "" {
 		http.Error(w, "任务ID不能为空", http.StatusBadRequest)
 		return
 	}
-	
+
 	// 从数据库中删除任务
 	_, err = db.Exec("DELETE FROM tasks WHERE id = ?", taskID)
 	if err != nil {
@@ -715,7 +713,7 @@ func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 删除成功后重定向回管理员页面
 	http.Redirect(w, r, "/admin", http.StatusFound)
 }
@@ -729,20 +727,20 @@ func deleteTaskTemplateHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	
+
 	// 确保是POST请求
 	if r.Method != "POST" {
 		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	// 获取任务模板ID
 	templateID := r.FormValue("template_id")
 	if templateID == "" {
 		http.Error(w, "任务模板ID不能为空", http.StatusBadRequest)
 		return
 	}
-	
+
 	// 从数据库中删除任务模板
 	_, err = db.Exec("DELETE FROM task_templates WHERE id = ?", templateID)
 	if err != nil {
@@ -750,7 +748,7 @@ func deleteTaskTemplateHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 删除成功后重定向回管理员页面
 	http.Redirect(w, r, "/admin", http.StatusFound)
 }
@@ -762,14 +760,22 @@ func claimTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	// 获取任务ID
 	taskID := r.FormValue("task_id")
 	if taskID == "" {
 		http.Error(w, "任务ID不能为空", http.StatusBadRequest)
 		return
 	}
-	
+
+	// 获取第一个玩家ID
+	playerID, err := getFirstPlayerID()
+	if err != nil {
+		log.Println("获取玩家ID失败:", err)
+		http.Error(w, "服务器错误", http.StatusInternalServerError)
+		return
+	}
+
 	// 事务处理领取任务
 	tx, err := db.Begin()
 	if err != nil {
@@ -778,7 +784,7 @@ func claimTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
-	
+
 	// 检查任务状态是否为available
 	var status string
 	err = tx.QueryRow("SELECT status FROM tasks WHERE id = ?", taskID).Scan(&status)
@@ -787,20 +793,20 @@ func claimTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
+
 	if status != "available" {
 		http.Error(w, "该任务已被领取", http.StatusBadRequest)
 		return
 	}
-	
+
 	// 更新任务状态为claimed并关联玩家ID
-	_, err = tx.Exec("UPDATE tasks SET status = 'claimed', player_id = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?", taskID)
+	_, err = tx.Exec("UPDATE tasks SET status = 'claimed', player_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", playerID, taskID)
 	if err != nil {
 		log.Println("更新任务状态失败:", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 提交事务
 	err = tx.Commit()
 	if err != nil {
@@ -808,7 +814,7 @@ func claimTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 领取成功后重定向回任务页面
 	http.Redirect(w, r, "/tasks", http.StatusFound)
 }
@@ -820,14 +826,22 @@ func completeTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	// 获取任务ID
 	taskID := r.FormValue("task_id")
 	if taskID == "" {
 		http.Error(w, "任务ID不能为空", http.StatusBadRequest)
 		return
 	}
-	
+
+	// 获取第一个玩家ID
+	currentPlayerID, err := getFirstPlayerID()
+	if err != nil {
+		log.Println("获取玩家ID失败:", err)
+		http.Error(w, "服务器错误", http.StatusInternalServerError)
+		return
+	}
+
 	// 事务处理提交完成任务
 	tx, err := db.Begin()
 	if err != nil {
@@ -836,23 +850,23 @@ func completeTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
-	
+
 	// 检查任务状态是否为claimed且属于当前玩家
 	var status string
-	var playerID int
-	err = tx.QueryRow("SELECT status, player_id FROM tasks WHERE id = ?", taskID).Scan(&status, &playerID)
+	var taskPlayerID int
+	err = tx.QueryRow("SELECT status, player_id FROM tasks WHERE id = ?", taskID).Scan(&status, &taskPlayerID)
 	if err != nil {
 		log.Println("查询任务状态失败:", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
-	if status != "claimed" || playerID != 1 {
-		log.Printf("任务提交验证失败: ID=%s, 状态=%s, 玩家ID=%d", taskID, status, playerID)
+
+	if status != "claimed" || taskPlayerID != currentPlayerID {
+		log.Printf("任务提交验证失败: ID=%s, 状态=%s, 任务玩家ID=%d, 当前玩家ID=%d", taskID, status, taskPlayerID, currentPlayerID)
 		http.Error(w, "你不能提交此任务", http.StatusBadRequest)
 		return
 	}
-	
+
 	// 更新任务状态为completed
 	_, err = tx.Exec("UPDATE tasks SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", taskID)
 	if err != nil {
@@ -860,7 +874,7 @@ func completeTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 提交事务
 	err = tx.Commit()
 	if err != nil {
@@ -868,10 +882,10 @@ func completeTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 记录成功日志
 	log.Printf("任务提交成功: ID=%s, 状态已更新为completed", taskID)
-	
+
 	// 提交成功后重定向回任务页面
 	http.Redirect(w, r, "/tasks", http.StatusFound)
 }
@@ -885,20 +899,20 @@ func verifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	
+
 	// 确保是POST请求
 	if r.Method != "POST" {
 		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	// 获取任务ID
 	taskID := r.FormValue("task_id")
 	if taskID == "" {
 		http.Error(w, "任务ID不能为空", http.StatusBadRequest)
 		return
 	}
-	
+
 	// 事务处理验证任务并发放奖励
 	tx, err := db.Begin()
 	if err != nil {
@@ -907,7 +921,7 @@ func verifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
-	
+
 	// 获取任务信息
 	var taskReward int
 	var taskStatus string
@@ -918,13 +932,13 @@ func verifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 检查任务状态是否为completed
 	if taskStatus != "completed" {
 		http.Error(w, "该任务未完成，无法验证", http.StatusBadRequest)
 		return
 	}
-	
+
 	// 增加玩家绿宝石数量
 	_, err = tx.Exec("UPDATE players SET emeralds = emeralds + ? WHERE id = ?", taskReward, playerID)
 	if err != nil {
@@ -932,7 +946,7 @@ func verifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 更新任务状态为verified
 	_, err = tx.Exec("UPDATE tasks SET status = 'verified', updated_at = CURRENT_TIMESTAMP WHERE id = ?", taskID)
 	if err != nil {
@@ -940,7 +954,7 @@ func verifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 提交事务
 	err = tx.Commit()
 	if err != nil {
@@ -948,8 +962,66 @@ func verifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 验证成功后重定向回管理员页面
+	http.Redirect(w, r, "/admin", http.StatusFound)
+}
+
+// 兑换奖励处理器
+func exchangeRewardHandler(w http.ResponseWriter, r *http.Request) {
+	// 确保是POST请求
+	if r.Method != "POST" {
+		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 获取兑换记录ID
+	exchangeID := r.FormValue("exchange_id")
+	if exchangeID == "" {
+		http.Error(w, "兑换记录ID不能为空", http.StatusBadRequest)
+		return
+	}
+
+	// 事务处理兑换奖励
+	tx, err := db.Begin()
+	if err != nil {
+		log.Println("开始事务失败:", err)
+		http.Error(w, "服务器错误", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	// 查询兑换记录
+	var playerID int
+	var itemID int
+	var itemName string
+	err = tx.QueryRow("SELECT er.player_id, er.item_id, i.name FROM exchange_records er JOIN items i ON er.item_id = i.id WHERE er.id = ?", exchangeID).Scan(&playerID, &itemID, &itemName)
+	if err != nil {
+		log.Println("查询兑换记录失败:", err)
+		http.Error(w, "服务器错误", http.StatusInternalServerError)
+		return
+	}
+
+	// 更新兑换记录状态为已兑换
+	_, err = tx.Exec("UPDATE exchange_records SET exchanged = true WHERE id = ?", exchangeID)
+	if err != nil {
+		log.Println("更新兑换记录状态失败:", err)
+		http.Error(w, "服务器错误", http.StatusInternalServerError)
+		return
+	}
+
+	// 记录发放日志
+	log.Printf("管理员已为玩家ID %d 兑换物品: %s (物品ID: %d)", playerID, itemName, itemID)
+
+	// 提交事务
+	err = tx.Commit()
+	if err != nil {
+		log.Println("提交事务失败:", err)
+		http.Error(w, "服务器错误", http.StatusInternalServerError)
+		return
+	}
+
+	// 成功后重定向回管理页面
 	http.Redirect(w, r, "/admin", http.StatusFound)
 }
 
@@ -976,6 +1048,9 @@ func createTaskHandler(w http.ResponseWriter, r *http.Request) {
 	taskType := r.FormValue("type")
 	rewardStr := r.FormValue("reward")
 	expiryTime := r.FormValue("expiry_time")
+	startTime := r.FormValue("start_time")
+
+	log.Printf("接收到创建任务请求: title=%s, type=%s, startTime=%s, expiryTime=%s", title, taskType, startTime, expiryTime)
 	// 获取日常任务的重复周期
 	err = r.ParseForm()
 	if err != nil {
@@ -1026,41 +1101,144 @@ func createTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 如果是限时任务，立即创建一个任务实例
-	if taskType == "limited" {
-		// 为限时任务创建一个任务实例，包含created_at字段
-		_, err = db.Exec(
-			"INSERT INTO tasks (title, description, difficulty, type, reward, expiry_time, status, template_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			title, description, difficulty, taskType, reward, expiryTime, "available", templateID, time.Now().Format("2006-01-02 15:04:05"),
-		)
-		if err != nil {
-			log.Println("创建限时任务实例失败:", err)
-			http.Error(w, "服务器错误", http.StatusInternalServerError)
-			return
-		}
-	} else if taskType == "daily" {
-		// 对于日常任务，立即为明天创建任务实例，使其显示在即将开始的任务列表中
-		today := time.Now()
-		tomorrow := today.Add(24 * time.Hour)
-		tomorrowDate := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 0, 0, 0, 0, tomorrow.Location())
-		expiryTime := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 23, 59, 59, 0, tomorrow.Location())
-		expiryTimeStr := expiryTime.Format("2006-01-02 15:04:05")
-		createdAtStr := tomorrowDate.Format("2006-01-02 15:04:05")
-
-		// 创建明天的任务实例，设置created_at为明天的开始时间
-		_, err = db.Exec(
-			"INSERT INTO tasks (title, description, difficulty, type, reward, expiry_time, status, repeat_days, template_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			title, description, difficulty, "daily", reward, expiryTimeStr, "available", repeatDays, templateID, createdAtStr,
-		)
-		if err != nil {
-			log.Println("创建日常任务实例失败:", err)
-			http.Error(w, "服务器错误", http.StatusInternalServerError)
-			return
-		}
+	// 调用创建任务实例的函数，根据模板类型和规则生成相应的任务实例
+	err = createTaskInstancesFromTemplate(int(templateID), expiryTime, startTime)
+	if err != nil {
+		log.Println("创建任务实例失败:", err)
+		http.Error(w, "服务器错误", http.StatusInternalServerError)
+		return
 	}
 
 	// 创建成功后重定向回管理员页面
 	http.Redirect(w, r, "/admin", http.StatusFound)
+}
+
+// 创建任务实例的函数，可被createTaskHandler和定时任务调用
+func createTaskInstancesFromTemplate(templateID int, expiryTimeForLimited string, startTimeForLimited string) error {
+	log.Printf("创建任务实例: templateID=%d, expiryTime=%s, startTime=%s", templateID, expiryTimeForLimited, startTimeForLimited)
+	// 查询模板信息
+	var title, description, difficulty, taskType, repeatDays string
+	var reward int
+	query := "SELECT title, description, difficulty, type, reward, repeat_days FROM task_templates WHERE id = ?"
+	err := db.QueryRow(query, templateID).Scan(&title, &description, &difficulty, &taskType, &reward, &repeatDays)
+	if err != nil {
+		return fmt.Errorf("查询任务模板失败: %w", err)
+	}
+
+	// 根据任务类型处理
+	if taskType == "daily" {
+		// 检查是否存在状态为'available'或'claimed'的派生实例
+		var activeCount int
+		activeQuery := "SELECT COUNT(*) FROM tasks WHERE template_id = ? AND status IN ('available', 'claimed')"
+		err = db.QueryRow(activeQuery, templateID).Scan(&activeCount)
+		if err != nil {
+			return fmt.Errorf("查询活跃任务实例失败: %w", err)
+		}
+
+		// 如果没有活跃实例，根据重复周几设置创建新实例
+		if activeCount == 0 {
+			// 获取当前时间
+			now := time.Now()
+
+			days := strings.Split(repeatDays, ",")
+
+			// 查找未来7天内下一个符合重复周期的日期
+			var targetDate time.Time
+			found := false
+
+			for i := 0; i < 7; i++ {
+				checkDate := now.AddDate(0, 0, i)
+				checkWeekday := int(checkDate.Weekday())
+				checkWeekdayStr := strconv.Itoa(checkWeekday)
+
+				for _, day := range days {
+					if day == checkWeekdayStr {
+						targetDate = checkDate
+						found = true
+						break
+					}
+				}
+				if found {
+					break
+				}
+			}
+
+			if found {
+				// 设置任务过期时间为目标日期的23:59:59
+				expiryTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 23, 59, 59, 0, targetDate.Location())
+				expiryTimeStr := expiryTime.Format("2006-01-02 15:04:05")
+
+				// 设置任务开始时间为目标日期的00:00:00
+				startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+				startTimeStr := startTime.Format("2006-01-02 15:04:05")
+
+				// 创建任务实例，包含created_at和start_time字段
+				sqlInsert := "INSERT INTO tasks (title, description, difficulty, type, reward, expiry_time, status, template_id, created_at, start_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+				createdAt := time.Now().Format("2006-01-02 15:04:05")
+				_, err = db.Exec(sqlInsert, title, description, difficulty, "daily", reward, expiryTimeStr, "available", templateID, createdAt, startTimeStr)
+				if err != nil {
+					return fmt.Errorf("创建日常任务实例失败: %w", err)
+				}
+				log.Printf("成功创建日常任务 '%s' 实例，开始时间: %s", title, startTimeStr)
+			}
+		}
+	} else if taskType == "limited" {
+		// 限时任务：如果没有派生实例，则创建
+		var count int
+		sqlQuery := "SELECT COUNT(*) FROM tasks WHERE template_id = ?"
+		err = db.QueryRow(sqlQuery, templateID).Scan(&count)
+		if err != nil {
+			return fmt.Errorf("查询任务实例失败: %w", err)
+		}
+
+		if count == 0 {
+			// 为限时任务创建一个任务实例，包含created_at和start_time字段
+			var startTimeStr string
+			if startTimeForLimited != "" {
+				// 使用用户设置的开始时间，格式化成2006-01-02 15:04:05类型
+				// 尝试解析用户输入的时间字符串
+				log.Printf("尝试解析用户提交的开始时间: %s", startTimeForLimited)
+
+				// 尝试多种常见格式解析
+				parsedTime, err := time.Parse("2006-01-02 15:04:05", startTimeForLimited)
+				if err != nil {
+					// 尝试带T的ISO格式
+					parsedTime, err = time.Parse("2006-01-02T15:04:05", startTimeForLimited)
+				}
+				if err != nil {
+					// 尝试datetime-local格式（不带秒）
+					parsedTime, err = time.Parse("2006-01-02T15:04", startTimeForLimited)
+				}
+
+				if err != nil {
+					// 如果所有解析都失败，记录详细错误信息
+					log.Printf("解析开始时间失败: %v, 原始值: %s", err, startTimeForLimited)
+					// 这里不自动使用当前时间，而是返回错误，确保用户知道开始时间设置有问题
+					return fmt.Errorf("解析开始时间失败: %w, 原始值: %s", err, startTimeForLimited)
+				} else {
+					// 解析成功，格式化为标准格式
+					startTimeStr = parsedTime.Format("2006-01-02 15:04:05")
+				}
+				log.Printf("成功解析并格式化用户设置的开始时间: %s", startTimeStr)
+			} else {
+				// 如果没有设置开始时间，则使用当前时间
+				startTimeStr = time.Now().Format("2006-01-02 15:04:05")
+				log.Printf("没有设置开始时间，使用当前时间: %s", startTimeStr)
+			}
+
+			log.Printf("准备插入限时任务: title=%s, start_time=%s, expiry_time=%s", title, startTimeStr, expiryTimeForLimited)
+			_, err = db.Exec(
+				"INSERT INTO tasks (title, description, difficulty, type, reward, expiry_time, status, template_id, created_at, start_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				title, description, difficulty, taskType, reward, expiryTimeForLimited, "available", templateID, time.Now().Format("2006-01-02 15:04:05"), startTimeStr,
+			)
+			if err != nil {
+				return fmt.Errorf("创建限时任务实例失败: %w", err)
+			}
+			log.Printf("成功创建限时任务 '%s' 实例，开始时间: %s", title, startTimeStr)
+		}
+	}
+
+	return nil
 }
 
 func adminHandler(w http.ResponseWriter, r *http.Request) {
@@ -1071,15 +1249,15 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	
+
 	tmpl, err := template.ParseFiles("templates/admin.html")
 	if err != nil {
 		http.Error(w, "无法加载模板", http.StatusInternalServerError)
 		return
 	}
 
-	// 获取所有任务实例，使用COALESCE函数将NULL的repeat_days和template_id转换为默认值
-	rows, err := db.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, status, player_id, COALESCE(repeat_days, '') as repeat_days, COALESCE(template_id, 0) as template_id FROM tasks ORDER BY created_at DESC")
+	// 获取所有任务实例，使用COALESCE函数将NULL的template_id转换为默认值
+	rows, err := db.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, status, player_id, COALESCE(template_id, 0) as template_id FROM tasks ORDER BY created_at DESC")
 	if err != nil {
 		log.Println("查询任务失败:", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
@@ -1091,7 +1269,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var task Task
 		var templateID int
-		err := rows.Scan(&task.ID, &task.Title, &task.Description, &task.Difficulty, &task.Type, &task.Reward, &task.ExpiryTime, &task.Status, &task.PlayerID, &task.RepeatDays, &templateID)
+		err := rows.Scan(&task.ID, &task.Title, &task.Description, &task.Difficulty, &task.Type, &task.Reward, &task.ExpiryTime, &task.Status, &task.PlayerID, &templateID)
 		if err != nil {
 			log.Println("扫描任务数据失败:", err)
 			continue
@@ -1125,7 +1303,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 获取所有兑换记录
 	exchangeRows, err := db.Query(`
-		SELECT er.id, er.player_id, er.item_id, i.name, i.cost, er.timestamp 
+		SELECT er.id, er.player_id, er.item_id, i.name, i.cost, er.timestamp, er.exchanged 
 		FROM exchange_records er 
 		JOIN items i ON er.item_id = i.id 
 		ORDER BY er.timestamp DESC
@@ -1140,7 +1318,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	var exchangeRecords []ExchangeRecord
 	for exchangeRows.Next() {
 		var record ExchangeRecord
-		err := exchangeRows.Scan(&record.ID, &record.PlayerID, &record.ItemID, &record.ItemName, &record.Cost, &record.Timestamp)
+		err := exchangeRows.Scan(&record.ID, &record.PlayerID, &record.ItemID, &record.ItemName, &record.Cost, &record.Timestamp, &record.Exchanged)
 		if err != nil {
 			log.Println("扫描兑换记录数据失败:", err)
 			continue
@@ -1150,8 +1328,8 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 传递数据到模板
 	data := map[string]interface{}{
-		"Tasks":          tasks,
-		"TaskTemplates":  taskTemplates,
+		"Tasks":           tasks,
+		"TaskTemplates":   taskTemplates,
 		"ExchangeRecords": exchangeRecords,
 	}
 
@@ -1164,21 +1342,21 @@ func startDailyTaskRefresh() {
 	now := time.Now()
 	nextMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
 	durationUntilMidnight := nextMidnight.Sub(now)
-	
+
 	// 第一次执行等待到零点
 	time.Sleep(durationUntilMidnight)
-	
+
 	// 执行一次刷新
 	refreshDailyTasks()
-	
+
 	// 之后每24小时执行一次
 	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
-		refreshDailyTasks()
+			refreshDailyTasks()
 		}
 	}
 }
@@ -1186,115 +1364,38 @@ func startDailyTaskRefresh() {
 // 刷新日常任务
 func refreshDailyTasks() {
 	log.Println("开始刷新日常任务")
-	
-	// 获取今天和明天是星期几（0-6，0是周日）
-	todayWeekday := int(time.Now().Weekday())
-	tomorrowWeekday := (todayWeekday + 1) % 7 // 计算明天的星期几（处理周日的情况）
-	
-	// 转换为字符串用于比较
-	todayStr := strconv.Itoa(todayWeekday)
-	tomorrowStr := strconv.Itoa(tomorrowWeekday)
-	
-	// 从任务模板表中获取所有日常任务模板
+
+	// 查询所有任务模板
 	templates, err := db.Query(
-		"SELECT id, title, description, difficulty, reward, repeat_days FROM task_templates WHERE type = 'daily'",
+		"SELECT id FROM task_templates",
 	)
 	if err != nil {
-		log.Println("查询日常任务模板失败:", err)
+		log.Println("查询任务模板失败:", err)
 		return
 	}
 	defer templates.Close()
-	
-	// 遍历每个模板，检查是否需要创建今天或明天的任务
+
+	// 遍历每个模板，创建相应的任务实例
 	for templates.Next() {
 		var templateID int
-		var title, description, difficulty, repeatDays string
-		var reward int
-		err := templates.Scan(&templateID, &title, &description, &difficulty, &reward, &repeatDays)
+		err := templates.Scan(&templateID)
 		if err != nil {
-			log.Println("扫描日常任务模板失败:", err)
+			log.Println("扫描任务模板失败:", err)
 			continue
 		}
-		
-		// 检查重复周期是否为空
-		if repeatDays == "" {
-			continue
-		}
-		
-		days := strings.Split(repeatDays, ",")
-		
-		// 检查是否是今天的任务
-		isTodayTask := false
-		for _, day := range days {
-			if day == todayStr {
-				isTodayTask = true
-				break
-			}
-		}
-		
-		// 检查是否是明天的任务
-		isTomorrowTask := false
-		for _, day := range days {
-			if day == tomorrowStr {
-				isTomorrowTask = true
-				break
-			}
-		}
-		
-		// 处理今天的任务
-		if isTodayTask {
-			// 设置日常任务过期时间为当天23:59:59
-			today := time.Now()
-			expiryTime := time.Date(today.Year(), today.Month(), today.Day(), 23, 59, 59, 0, today.Location())
-			expiryTimeStr := expiryTime.Format("2006-01-02 15:04:05")
-			
-			// 检查今天的任务是否已经存在
-			var count int
-			sqlQuery := "SELECT COUNT(*) FROM tasks WHERE type = 'daily' AND template_id = ? AND date(created_at) = date('now')"
-			err = db.QueryRow(sqlQuery, templateID).Scan(&count)
-			if err == nil && count == 0 {
-				// 创建新的任务实例，包含created_at字段
-				sqlInsert := "INSERT INTO tasks (title, description, difficulty, type, reward, expiry_time, status, repeat_days, template_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-				createdAt := time.Now().Format("2006-01-02 15:04:05")
-				_, err = db.Exec(sqlInsert, title, description, difficulty, "daily", reward, expiryTimeStr, "available", repeatDays, templateID, createdAt)
-				if err != nil {
-					log.Printf("创建今天的日常任务 '%s' 失败: %v", title, err)
-				} else {
-					log.Printf("成功创建今天的日常任务 '%s'", title)
-				}
-			}
-		}
-		
-		// 处理明天的任务（提前一天显示，让用户可以提前看到并领取）
-		if isTomorrowTask {
-			// 设置明天任务的过期时间为明天23:59:59
-			tomorrow := time.Now().Add(24 * time.Hour)
-			expiryTime := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 23, 59, 59, 0, tomorrow.Location())
-			expiryTimeStr := expiryTime.Format("2006-01-02 15:04:05")
-			
-			// 检查明天的任务是否已经存在
-			var count int
-			sqlQuery := "SELECT COUNT(*) FROM tasks WHERE type = 'daily' AND template_id = ? AND date(expiry_time) = date('now', '+1 day')"
-			err = db.QueryRow(sqlQuery, templateID).Scan(&count)
-			if err == nil && count == 0 {
-				// 创建明天的任务实例，设置created_at为明天的开始时间，使其显示在即将开始的任务列表中
-				sqlInsert := "INSERT INTO tasks (title, description, difficulty, type, reward, expiry_time, status, repeat_days, template_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-				createdAt := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 0, 0, 0, 0, tomorrow.Location()).Format("2006-01-02 15:04:05")
-				_, err = db.Exec(sqlInsert, title, description, difficulty, "daily", reward, expiryTimeStr, "available", repeatDays, templateID, createdAt)
-				if err != nil {
-					log.Printf("创建明天的日常任务 '%s' 失败: %v", title, err)
-				} else {
-					log.Printf("成功创建明天的日常任务 '%s'", title)
-				}
-			}
+
+		// 调用创建任务实例的函数，传递空字符串作为限时任务的过期时间和开始时间（因为定时任务不处理限时任务）
+		err = createTaskInstancesFromTemplate(templateID, "", "")
+		if err != nil {
+			log.Printf("为模板ID %d 创建任务实例失败: %v", templateID, err)
 		}
 	}
-	
+
 	// 将过期的日常任务标记为已完成
 	_, err = db.Exec("UPDATE tasks SET status = 'completed' WHERE type = 'daily' AND status = 'claimed' AND date(updated_at) < date('now')")
 	if err != nil {
 		log.Println("更新过期日常任务状态失败:", err)
 	}
-	
+
 	log.Println("日常任务刷新完成")
 }

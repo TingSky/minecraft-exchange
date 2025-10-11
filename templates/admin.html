@@ -403,6 +403,7 @@
 								<th>物品名称</th>
 								<th>消耗绿宝石</th>
 								<th>兑换时间</th>
+								<th>操作</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -414,6 +415,31 @@
 								<td>{{.ItemName}}</td>
 								<td>{{.Cost}}</td>
 								<td><script>document.write(formatDateTime('{{.Timestamp}}'))</script></td>
+								<td>
+									{{if .Exchanged}}
+										<span class="status-verified">已兑换</span>
+									{{else}}
+										<form action="/admin/exchange-reward" method="post" style="display: inline;" id="exchange-form-{{.ID}}">
+											<input type="hidden" name="exchange_id" value="{{.ID}}">
+											<button type="submit" class="minecraft-btn small" id="exchange-btn-{{.ID}}">兑换奖励</button>
+										</form>
+										<script>
+											// 为兑换按钮添加点击事件处理
+											const exchangeBtn = document.getElementById('exchange-btn-{{.ID}}');
+											const exchangeForm = document.getElementById('exchange-form-{{.ID}}');
+											
+											if (exchangeBtn && exchangeForm) {
+												exchangeForm.addEventListener('submit', function(e) {
+													// 禁用按钮并更改文本
+													exchangeBtn.disabled = true;
+													exchangeBtn.textContent = '已兑换';
+													exchangeBtn.classList.add('disabled');
+													// 不阻止表单提交，让请求继续处理
+												});
+											}
+										</script>
+									{{end}}
+								</td>
 							</tr>
 							{{end}}
 						</tbody>

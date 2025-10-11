@@ -45,6 +45,36 @@ function updateTaskCountdowns() {
 	});
 }
 
+// 格式化任务开始时间
+function formatTaskStartTimes() {
+	// 找到所有任务开始时间元素
+	const startElements = document.querySelectorAll('.task-start');
+	startElements.forEach((element) => {
+		const startTimeStr = element.getAttribute('data-start');
+		if (startTimeStr) {
+			// 解析开始时间
+			let startTime;
+			try {
+				startTime = new Date(startTimeStr);
+			} catch (error) {
+				console.error('解析日期失败:', error);
+				return;
+			}
+			
+			// 格式化开始时间为YYYY-MM-DD HH:MM:SS格式
+			const year = startTime.getFullYear();
+			const month = String(startTime.getMonth() + 1).padStart(2, '0');
+			const day = String(startTime.getDate()).padStart(2, '0');
+			const hours = String(startTime.getHours()).padStart(2, '0');
+			const minutes = String(startTime.getMinutes()).padStart(2, '0');
+			const seconds = String(startTime.getSeconds()).padStart(2, '0');
+			
+			const formattedTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+			element.textContent = '开始时间: ' + formattedTime;
+		}
+	});
+}
+
 // 主JavaScript文件
 
 // 页面加载完成后执行
@@ -55,6 +85,9 @@ window.addEventListener('DOMContentLoaded', function() {
 	updateTaskCountdowns();
 	// 每秒更新一次倒计时
 	setInterval(updateTaskCountdowns, 1000);
+	
+	// 格式化任务开始时间
+	formatTaskStartTimes();
 	
 	// 为所有删除按钮添加确认提示
 	const deleteButtons = document.querySelectorAll('.delete-btn');

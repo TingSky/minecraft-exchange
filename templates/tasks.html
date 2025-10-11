@@ -91,8 +91,16 @@
 							<button type="submit" class="minecraft-btn">提交完成</button>
 						</form>
 						{{else if eq .Status "completed"}}
-						<div class="task-status completed">
-							<span>已提交，等待确认</span>
+						<div class="task-action">
+							<button type="button" class="minecraft-btn disabled" disabled="disabled">确认中...</button>
+						</div>
+						{{else if eq .Status "verified"}}
+						<div class="task-action">
+							<button type="button" class="minecraft-btn disabled" disabled="disabled">已完成</button>
+						</div>
+						{{else}}
+						<div class="task-action">
+							<span>状态: {{.Status}}</span>
 						</div>
 						{{end}}
 					</div>
@@ -127,7 +135,7 @@
 							</span>
 						</div>
 						<div class="task-details">
-							<span class="task-start minecraft-time">开始时间: {{.CreatedAt.Format "2006-01-02 15:04:05"}}</span>
+							<span class="task-start minecraft-time" data-start="{{.StartTime}}">开始时间: {{.StartTime}}</span>
 							<span class="task-expiry minecraft-time" data-expiry="{{.ExpiryTime}}">截止时间: {{.ExpiryTime}}</span>
 						</div>
 						<div class="task-action">
