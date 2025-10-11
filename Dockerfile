@@ -21,7 +21,11 @@ RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o minecraft-exchange mai
 FROM alpine:3.19
 
 # 使用--virtual创建一个虚拟包组，方便后续清理
-RUN apk add --no-cache --virtual .build-deps sqlite-libs
+RUN apk add --no-cache --virtual .build-deps sqlite-libs tzdata
+
+# 设置中国时区（Asia/Shanghai）
+ENV TZ=Asia/Shanghai
+RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # 设置工作目录
 WORKDIR /app
