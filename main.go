@@ -367,7 +367,8 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 		tasks = append(tasks, task)
 	}
 
-	// 获取玩家已领取任务（包含状态字段）	claimedRows, err := db.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, created_at, status FROM tasks WHERE status IN ('claimed', 'completed') AND player_id = 1 ORDER BY updated_at DESC")
+	// 获取玩家已领取任务（包含状态字段）
+	claimedRows, err := db.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, created_at, status FROM tasks WHERE status IN ('claimed', 'completed') AND player_id = 1 ORDER BY updated_at DESC")
 	if err != nil {
 		log.Println("查询已领取任务失败:", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)

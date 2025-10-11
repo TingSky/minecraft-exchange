@@ -28,5 +28,8 @@ go.work.sum
 .env
 
 # Editor/IDE
+
+# Project specific binaries
+minecraft-exchange
 # .idea/
 # .vscode/
