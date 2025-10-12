@@ -56,5 +56,8 @@ EXPOSE 8080
 # 设置环境变量，配置数据库路径为数据目录下，确保nobody用户有写权限
 ENV DATABASE_PATH=/app/data/minecraft_exchange.db
 
+# 声明持久化数据卷，用于保存SQLite数据库文件
+VOLUME ["/app/data"]
+
 # 设置入口点
 CMD ["./minecraft-exchange"]
