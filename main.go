@@ -37,6 +37,7 @@ func main() {
 	http.HandleFunc("/create_task", handlers.CreateTaskHandler)
 	http.HandleFunc("/create_item", handlers.CreateItemHandler)
 	http.HandleFunc("/delete_item", handlers.DeleteItemHandler)
+	http.HandleFunc("/refresh_daily_tasks", handlers.RefreshDailyTasksHandler)
 
 	// 启动HTTP服务器
 	log.Println("服务器启动在 http://localhost:8080")

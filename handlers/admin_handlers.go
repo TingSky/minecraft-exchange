@@ -60,10 +60,10 @@ func AdminHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 准备传递给模板的数据
 	data := map[string]interface{}{
-		"Tasks":            tasks,
-		"TaskTemplates":    taskTemplates,
-		"ExchangeRecords":  exchangeRecords,
-		"Items":            items,
+		"Tasks":           tasks,
+		"TaskTemplates":   taskTemplates,
+		"ExchangeRecords": exchangeRecords,
+		"Items":           items,
 	}
 
 	// 执行模板渲染
@@ -132,4 +132,21 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl.Execute(w, nil)
+}
+
+// 手动刷新日常任务处理器
+func RefreshDailyTasksHandler(w http.ResponseWriter, r *http.Request) {
+	// 检查是否已登录
+	cookie, err := r.Cookie("session_token")
+	if err != nil || cookie.Value == "" {
+		// 未登录，重定向到登录页面
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+
+	// 调用刷新日常任务函数
+	utils.RefreshDailyTasks()
+
+	// 刷新成功后重定向回管理员页面
+	http.Redirect(w, r, "/admin", http.StatusFound)
 }

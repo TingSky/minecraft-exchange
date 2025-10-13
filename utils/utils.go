@@ -62,11 +62,11 @@ func CreateTaskInstancesFromTemplate(templateID int, expiryTimeForLimited string
 		now := time.Now()
 
 		// 查询该模板今天或之后创建的最新任务实例
-		var latestInstanceDateStr string
+		var latestInstanceDate sql.NullString
 		latestQuery := "SELECT MAX(expiry_time) FROM tasks WHERE template_id = ? AND expiry_time >= ?"
 		currentDateStr := now.Format("2006-01-02") + " 00:00:00"
-		err = models.DB.QueryRow(latestQuery, templateID, currentDateStr).Scan(&latestInstanceDateStr)
-		if err != nil && err != sql.ErrNoRows {
+		err = models.DB.QueryRow(latestQuery, templateID, currentDateStr).Scan(&latestInstanceDate)
+		if err != nil {
 			return err
 		}
 
@@ -74,17 +74,8 @@ func CreateTaskInstancesFromTemplate(templateID int, expiryTimeForLimited string
 
 		// 确定开始查找的日期：如果有今天或之后的实例，从该实例日期的下一天开始查找
 		var startDate time.Time
-		if latestInstanceDateStr != "" {
-			// 解析最新实例的过期时间
-			latestDate, err := time.Parse("2006-01-02 15:04:05", latestInstanceDateStr)
-			if err != nil {
-				log.Printf("解析最新实例日期失败: %v", err)
-				// 如果解析失败，从明天开始查找
-				startDate = now.AddDate(0, 0, 1)
-			} else {
-				// 从最新实例日期的下一天开始查找
-				startDate = latestDate.AddDate(0, 0, 1)
-			}
+		if latestInstanceDate.Valid && latestInstanceDate.String != "" {
+			return nil
 		} else {
 			// 如果没有今天或之后的实例，从现在开始查找
 			startDate = now
@@ -214,6 +205,7 @@ func CreateTaskInstancesFromTemplate(templateID int, expiryTimeForLimited string
 }
 
 // 刷新日常任务的函数
+// 刷新日常任务的函数
 func RefreshDailyTasks() {
 	log.Println("开始刷新日常任务")
 
@@ -233,8 +225,9 @@ func RefreshDailyTasks() {
 		}
 	}
 
-	// 更新过期的任务状态
-	_, err = models.DB.Exec("UPDATE tasks SET status = 'expired' WHERE expiry_time < CURRENT_TIMESTAMP AND status NOT IN ('completed', 'verified', 'expired')")
+	// 更新过期的任务状态 - 使用Go代码中的本地时间
+	localTime := time.Now().Format("2006-01-02 15:04:05")
+	_, err = models.DB.Exec("UPDATE tasks SET status = 'expired' WHERE expiry_time < ? AND status NOT IN ('completed', 'verified', 'expired')", localTime)
 	if err != nil {
 		log.Println("更新过期任务状态失败:", err)
 		return

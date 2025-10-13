@@ -509,9 +509,10 @@ func GetItemInfo(itemID int) (Item, error) {
 
 // 创建物品
 func CreateItem(name, description string, cost, stock int, expiryTime string) error {
+	localTime := time.Now().Format("2006-01-02 15:04:05")
 	_, err := DB.Exec(
-		"INSERT INTO items (name, description, cost, stock, expiry_time) VALUES (?, ?, ?, ?, ?)",
-		name, description, cost, stock, expiryTime,
+		"INSERT INTO items (name, description, cost, stock, expiry_time, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+		name, description, cost, stock, expiryTime, localTime,
 	)
 	return err
 }
@@ -537,33 +538,43 @@ func CreateExchangeRecord(playerID int, itemID int) error {
 // 更新兑换记录状态
 func UpdateExchangeRecordStatus(recordID int, exchanged bool) error {
 	// 简化函数，只更新exchanged列，避免依赖不存在的exchanged_at列
-	_, err := DB.Exec("UPDATE exchange_records SET exchanged = ? WHERE id = ?", exchanged, recordID)
-	return err
+	if exchanged {
+		localTime := time.Now().Format("2006-01-02 15:04:05")
+		_, err := DB.Exec("UPDATE exchange_records SET exchanged = ?, exchanged_at = ? WHERE id = ?", exchanged, localTime, recordID)
+		return err
+	} else {
+		_, err := DB.Exec("UPDATE exchange_records SET exchanged = ? WHERE id = ?", exchanged, recordID)
+		return err
+	}
 }
 
 // 领取任务
 func ClaimTask(taskID int, playerID int) error {
-	_, err := DB.Exec("UPDATE tasks SET status = 'claimed', player_id = ? WHERE id = ? AND status = 'available'", playerID, taskID)
+	localTime := time.Now().Format("2006-01-02 15:04:05")
+	_, err := DB.Exec("UPDATE tasks SET status = 'claimed', player_id = ?, updated_at = ? WHERE id = ? AND status = 'available'", playerID, localTime, taskID)
 	return err
 }
 
 // 完成任务
 func CompleteTask(taskID int) error {
-	_, err := DB.Exec("UPDATE tasks SET status = 'completed' WHERE id = ? AND status = 'claimed'", taskID)
+	localTime := time.Now().Format("2006-01-02 15:04:05")
+	_, err := DB.Exec("UPDATE tasks SET status = 'completed', updated_at = ? WHERE id = ? AND status = 'claimed'", localTime, taskID)
 	return err
 }
 
 // 验证任务
 func VerifyTask(taskID int) error {
-	_, err := DB.Exec("UPDATE tasks SET status = 'verified' WHERE id = ? AND status = 'completed'", taskID)
+	localTime := time.Now().Format("2006-01-02 15:04:05")
+	_, err := DB.Exec("UPDATE tasks SET status = 'verified', updated_at = ? WHERE id = ? AND status = 'completed'", localTime, taskID)
 	return err
 }
 
 // 创建任务
 func CreateTask(task Task) error {
+	localTime := time.Now().Format("2006-01-02 15:04:05")
 	_, err := DB.Exec(
-		"INSERT INTO tasks (title, description, difficulty, type, reward, expiry_time, start_time, template_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		task.Title, task.Description, task.Difficulty, task.Type, task.Reward, task.ExpiryTime, task.StartTime, task.TemplateID,
+		"INSERT INTO tasks (title, description, difficulty, type, reward, expiry_time, start_time, template_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		task.Title, task.Description, task.Difficulty, task.Type, task.Reward, task.ExpiryTime, task.StartTime, task.TemplateID, localTime, localTime,
 	)
 	return err
 }
@@ -582,9 +593,10 @@ func DeleteTaskTemplate(templateID int) error {
 
 // 创建任务模板
 func CreateTaskTemplate(template TaskTemplate) (int64, error) {
+	localTime := time.Now().Format("2006-01-02 15:04:05")
 	result, err := DB.Exec(
-		"INSERT INTO task_templates (title, description, difficulty, type, reward, repeat_days) VALUES (?, ?, ?, ?, ?, ?)",
-		template.Title, template.Description, template.Difficulty, template.Type, template.Reward, template.RepeatDays,
+		"INSERT INTO task_templates (title, description, difficulty, type, reward, repeat_days, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		template.Title, template.Description, template.Difficulty, template.Type, template.Reward, template.RepeatDays, localTime, localTime,
 	)
 	if err != nil {
 		return 0, err
