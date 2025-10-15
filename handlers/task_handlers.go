@@ -44,11 +44,6 @@ func TasksHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 记录任务状态日志
-	for _, task := range claimedTasks {
-		log.Printf("任务ID: %d, 标题: %s, 状态: %s", task.ID, task.Title, task.Status)
-	}
-
 	// 获取即将开始的任务
 	upcomingTasks, err := models.GetUpcomingTasks()
 	if err != nil {
@@ -223,20 +218,8 @@ func VerifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 事务处理验证任务并发放奖励
-	tx, err := models.DB.Begin()
-	if err != nil {
-		log.Println("开始事务失败:", err)
-		http.Error(w, "服务器错误", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback()
-
-	// 获取任务信息
-	var taskReward int
-	var taskStatus string
-	var playerID int
-	err = tx.QueryRow("SELECT reward, status, player_id FROM tasks WHERE id = ?", taskID).Scan(&taskReward, &taskStatus, &playerID)
+	// 先获取任务信息，检查状态和所有权
+	task, err := models.GetTaskByID(taskID)
 	if err != nil {
 		log.Println("查询任务信息失败:", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
@@ -244,13 +227,13 @@ func VerifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 检查任务状态是否为completed
-	if taskStatus != "completed" {
+	if task.Status != "completed" {
 		http.Error(w, "该任务未完成，无法验证", http.StatusBadRequest)
 		return
 	}
 
 	// 获取玩家当前绿宝石数量
-	player, err := models.GetPlayerInfo(playerID)
+	player, err := models.GetPlayerInfo(*task.PlayerID)
 	if err != nil {
 		log.Println("查询玩家信息失败:", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
@@ -258,8 +241,8 @@ func VerifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 增加玩家绿宝石数量
-	newEmeralds := player.Emeralds + taskReward
-	err = models.UpdatePlayerEmeralds(playerID, newEmeralds)
+	newEmeralds := player.Emeralds + task.Reward
+	err = models.UpdatePlayerEmeralds(*task.PlayerID, newEmeralds)
 	if err != nil {
 		log.Println("增加绿宝石失败:", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
@@ -270,14 +253,6 @@ func VerifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 	err = models.VerifyTask(taskID)
 	if err != nil {
 		log.Println("验证任务失败:", err)
-		http.Error(w, "服务器错误", http.StatusInternalServerError)
-		return
-	}
-
-	// 提交事务
-	err = tx.Commit()
-	if err != nil {
-		log.Println("提交事务失败:", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
 		return
 	}
