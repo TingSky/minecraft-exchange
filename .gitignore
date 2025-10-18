@@ -30,6 +30,7 @@ go.work.sum
 # Editor/IDE
 
 # Project specific binaries
+minecraft_exchange.db
 minecraft-exchange
 # .idea/
 # .vscode/

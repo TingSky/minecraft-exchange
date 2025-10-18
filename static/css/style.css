@@ -10,7 +10,7 @@
 body {
 	font-family: 'Minecraft', Arial, sans-serif;
 	background-color: #8B4513;
-	background-image: url('../images/stone.png');
+	/* Removed non-existent stone.png background image */
 	color: #FFFFFF;
 	line-height: 1.6;
 }

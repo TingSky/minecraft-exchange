@@ -304,3 +304,74 @@ func ExchangeRewardHandler(w http.ResponseWriter, r *http.Request) {
 	// 处理成功后重定向回管理员页面
 	http.Redirect(w, r, "/admin", http.StatusFound)
 }
+
+// 更新物品处理器
+func UpdateItemHandler(w http.ResponseWriter, r *http.Request) {
+	// 检查是否已登录
+	cookie, err := r.Cookie("session_token")
+	if err != nil || cookie.Value == "" {
+		// 未登录，重定向到登录页面
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+
+	// 确保是POST请求
+	if r.Method != "POST" {
+		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 获取表单数据
+	itemIDStr := r.FormValue("item_id")
+	name := r.FormValue("name")
+	description := r.FormValue("description")
+	costStr := r.FormValue("cost")
+	stockStr := r.FormValue("stock")
+	expiryTimeStr := r.FormValue("expiry_time")
+
+	// 验证表单数据
+	if itemIDStr == "" || name == "" || costStr == "" || stockStr == "" {
+		http.Error(w, "物品ID、名称、价格和库存不能为空", http.StatusBadRequest)
+		return
+	}
+
+	// 转换数值
+	itemID, err := strconv.Atoi(itemIDStr)
+	if err != nil {
+		log.Println("物品ID格式错误:", err)
+		http.Error(w, "物品ID格式错误", http.StatusBadRequest)
+		return
+	}
+
+	cost, err := strconv.Atoi(costStr)
+	if err != nil || cost <= 0 {
+		http.Error(w, "价格必须是正整数", http.StatusBadRequest)
+		return
+	}
+
+	stock, err := strconv.Atoi(stockStr)
+	if err != nil || stock < 0 {
+		http.Error(w, "库存必须是非负整数", http.StatusBadRequest)
+		return
+	}
+
+	// 处理过期时间
+	expiryTime := ""
+	if expiryTimeStr != "" {
+		expiryTime = expiryTimeStr
+	} else {
+		// 如果未设置过期时间，默认设置为30天后
+		expiryTime = time.Now().Add(30 * 24 * time.Hour).Format("2006-01-02 15:04:05")
+	}
+
+	// 更新物品
+	err = models.UpdateItem(itemID, name, description, cost, stock, expiryTime)
+	if err != nil {
+		log.Println("更新物品失败:", err)
+		http.Error(w, "服务器错误", http.StatusInternalServerError)
+		return
+	}
+
+	// 重定向到管理员页面
+	http.Redirect(w, r, "/admin", http.StatusFound)
+}

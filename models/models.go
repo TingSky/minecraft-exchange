@@ -452,7 +452,9 @@ func GetAllTaskTemplates() ([]TaskTemplate, error) {
 
 // 获取所有任务
 func GetAllTasks() ([]Task, error) {
-	rows, err := DB.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, status, player_id, COALESCE(template_id, 0) as template_id FROM tasks ORDER BY created_at DESC")
+	// 计算大前天的时间
+	threeDaysAgo := time.Now().AddDate(0, 0, -2).Format("2006-01-02 15:04:05")
+	rows, err := DB.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, status, player_id, COALESCE(template_id, 0) as template_id FROM tasks WHERE expiry_time > ? ORDER BY created_at DESC", threeDaysAgo)
 	if err != nil {
 		return nil, err
 	}
@@ -612,4 +614,13 @@ func GetTaskByID(taskID int) (Task, error) {
 		return task, err
 	}
 	return task, nil
+}
+
+// 更新物品信息
+func UpdateItem(itemID int, name, description string, cost, stock int, expiryTime string) error {
+	_, err := DB.Exec(
+		"UPDATE items SET name = ?, description = ?, cost = ?, stock = ?, expiry_time = ? WHERE id = ?",
+		name, description, cost, stock, expiryTime, itemID,
+	)
+	return err
 }

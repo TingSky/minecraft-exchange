@@ -36,6 +36,7 @@ func main() {
 	http.HandleFunc("/delete_task_template", handlers.DeleteTaskTemplateHandler)
 	http.HandleFunc("/create_task", handlers.CreateTaskHandler)
 	http.HandleFunc("/create_item", handlers.CreateItemHandler)
+	http.HandleFunc("/update_item", handlers.UpdateItemHandler)
 	http.HandleFunc("/delete_item", handlers.DeleteItemHandler)
 	http.HandleFunc("/refresh_daily_tasks", handlers.RefreshDailyTasksHandler)
 

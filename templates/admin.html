@@ -398,14 +398,15 @@
 					<button id="create-item-btn" class="minecraft-btn" onclick="openNewItemModal()">创建物品</button>
 				</div>
 
-				<!-- 全新的独立模态框 -->
+				<!-- 物品编辑模态框 -->
 				<div id="new-item-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;">
 					<div style="background-color: #2D2D2D; border: 4px solid #555; padding: 20px; max-width: 500px; width: 100%;">
 						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-							<h3 style="color: #FFFF00; margin: 0;">创建新物品</h3>
+							<h3 id="modal-title" style="color: #FFFF00; margin: 0;">创建新物品</h3>
 							<span onclick="closeNewItemModal()" style="cursor: pointer; color: white; font-size: 24px;">&times;</span>
 						</div>
-						<form action="/create_item" method="post">
+						<form id="item-form" action="/create_item" method="post">
+							<input type="hidden" id="edit-item-id" name="item_id">
 							<div class="form-group">
 								<label for="new-item-name">物品名称：</label>
 								<input type="text" id="new-item-name" name="name" required>
@@ -427,7 +428,7 @@
 								<input type="datetime-local" id="new-item-expiry" name="expiry_time" step="60">
 							</div>
 							<div class="form-actions">
-								<button type="submit" class="minecraft-btn create-btn">创建物品</button>
+								<button type="submit" id="submit-btn" class="minecraft-btn create-btn">创建物品</button>
 								<button type="button" class="minecraft-btn cancel-btn" onclick="closeNewItemModal()">取消</button>
 							</div>
 						</form>
@@ -435,69 +436,93 @@
 				</div>
 
 				<script>
-				// 确保DOM加载完成后再执行
-					document.addEventListener('DOMContentLoaded', function() {
-						// 计算当月月底时间
-						function getCurrentMonthEndDate() {
-							const now = new Date();
-							const year = now.getFullYear();
-							const month = now.getMonth();
-							// 设置为下个月的第一天，然后减去1毫秒得到本月的最后一天
-							const endOfMonth = new Date(year, month + 1, 0, 23, 59, 0);
-							return endOfMonth;
-						}
-						// 格式化日期为datetime-local格式（只到分钟）
-						function formatDateForDateTimeLocal(date) {
-							const year = date.getFullYear();
-							const month = String(date.getMonth() + 1).padStart(2, '0');
-							const day = String(date.getDate()).padStart(2, '0');
-							const hours = String(date.getHours()).padStart(2, '0');
-							const minutes = String(date.getMinutes()).padStart(2, '0');
-							return `${year}-${month}-${day}T${hours}:${minutes}`;
-						}
-						
-						// 设置过期时间选择框的默认值为当月月底
-						const expiryInput = document.getElementById('new-item-expiry');
-						if (expiryInput) {
-							const endOfMonth = getCurrentMonthEndDate();
-							const formattedDate = formatDateForDateTimeLocal(endOfMonth);
-							expiryInput.value = formattedDate;
-						}
-						
-						// 模态框控制函数
-						function openNewItemModal() {
-							console.log('打开新模态框');
-							const modal = document.getElementById('new-item-modal');
-							if (modal) {
-								modal.style.display = 'flex';
-							} else {
-								console.error('未找到new-item-modal元素');
-							}
-						}
-					function closeNewItemModal() {
-						console.log('关闭新模态框');
-						const modal = document.getElementById('new-item-modal');
-						if (modal) {
-							modal.style.display = 'none';
-						} else {
-							console.error('未找到new-item-modal元素');
-						}
+				// 全局格式化日期函数
+				window.formatDateForDateTimeLocal = function(date) {
+					const year = date.getFullYear();
+					const month = String(date.getMonth() + 1).padStart(2, '0');
+					const day = String(date.getDate()).padStart(2, '0');
+					const hours = String(date.getHours()).padStart(2, '0');
+					const minutes = String(date.getMinutes()).padStart(2, '0');
+					return `${year}-${month}-${day}T${hours}:${minutes}`;
+				};
+				
+				// 打开创建物品模态框
+				window.openNewItemModal = function() {
+					document.getElementById('modal-title').textContent = '创建新物品';
+					document.getElementById('item-form').action = '/create_item';
+					document.getElementById('submit-btn').textContent = '创建物品';
+					document.getElementById('edit-item-id').value = '';
+					
+					// 清空表单
+					document.getElementById('new-item-name').value = '';
+					document.getElementById('new-item-cost').value = '';
+					document.getElementById('new-item-stock').value = '';
+					document.getElementById('new-item-description').value = '';
+					document.getElementById('new-item-expiry').value = '';
+					
+					// 设置默认过期时间为30天后
+					const defaultExpiry = new Date();
+					defaultExpiry.setDate(defaultExpiry.getDate() + 30);
+					document.getElementById('new-item-expiry').value = window.formatDateForDateTimeLocal(defaultExpiry);
+					
+					document.getElementById('new-item-modal').style.display = 'flex';
+				};
+				
+				// 打开编辑物品模态框
+				window.openEditItemModal = function(id, name, description, cost, stock, expiryTime) {
+					document.getElementById('modal-title').textContent = '编辑物品';
+					document.getElementById('item-form').action = '/update_item';
+					document.getElementById('submit-btn').textContent = '更新物品';
+					document.getElementById('edit-item-id').value = id;
+					
+					// 填充表单数据
+					document.getElementById('new-item-name').value = name;
+					document.getElementById('new-item-cost').value = cost;
+					document.getElementById('new-item-stock').value = stock;
+					document.getElementById('new-item-description').value = description;
+					
+					// 格式化过期时间
+					if (expiryTime) {
+						const expiryDate = new Date(expiryTime);
+						document.getElementById('new-item-expiry').value = window.formatDateForDateTimeLocal(expiryDate);
 					}
 					
-					// 将函数绑定到window对象，使其在全局可访问
-					window.openNewItemModal = openNewItemModal;
-					window.closeNewItemModal = closeNewItemModal;
+					document.getElementById('new-item-modal').style.display = 'flex';
+				};
+				
+				// 关闭模态框
+				window.closeNewItemModal = function() {
+					document.getElementById('new-item-modal').style.display = 'none';
+				};
+				
+				// 确保DOM加载完成后再执行
+				document.addEventListener('DOMContentLoaded', function() {
+					// 计算当月月底时间
+					function getCurrentMonthEndDate() {
+						const now = new Date();
+						const year = now.getFullYear();
+						const month = now.getMonth();
+						// 设置为下个月的第一天，然后减去1毫秒得到本月的最后一天
+						const endOfMonth = new Date(year, month + 1, 0, 23, 59, 0);
+						return endOfMonth;
+					}
+					
+					// 设置过期时间选择框的默认值为当月月底
+					const expiryInput = document.getElementById('new-item-expiry');
+					if (expiryInput) {
+						const endOfMonth = getCurrentMonthEndDate();
+						const formattedDate = window.formatDateForDateTimeLocal(endOfMonth);
+						expiryInput.value = formattedDate;
+					}
 					
 					// 点击模态框外部关闭
 					const modal = document.getElementById('new-item-modal');
 					if (modal) {
 						modal.addEventListener('click', function(event) {
 							if (event.target === this) {
-								closeNewItemModal();
+								window.closeNewItemModal();
 							}
 						});
-					} else {
-						console.error('无法为new-item-modal添加点击事件监听器');
 					}
 				});
 				</script>
@@ -525,10 +550,19 @@
 								<td>{{.Stock}}</td>
 								<td><script>document.write(formatDateTime('{{.ExpiryTime}}'))</script></td>
 								<td>
-									<form action="/delete_item" method="post" style="display: inline;" id="delete-item-form-{{.ID}}">
-										<input type="hidden" name="item_id" value="{{.ID}}">
-										<button type="submit" class="minecraft-btn small danger" onclick="return confirm('确定要删除这个物品吗？')">删除</button>
-									</form>
+										<form action="/update_item" method="post" style="display: inline;" id="update-item-form-{{.ID}}">
+											<input type="hidden" name="item_id" value="{{.ID}}">
+											<input type="hidden" name="name" value="{{.Name}}" id="edit-name-{{.ID}}">
+											<input type="hidden" name="description" value="{{.Description}}" id="edit-description-{{.ID}}">
+											<input type="hidden" name="cost" value="{{.Cost}}" id="edit-cost-{{.ID}}">
+											<input type="hidden" name="stock" value="{{.Stock}}" id="edit-stock-{{.ID}}">
+											<input type="hidden" name="expiry_time" value="{{.ExpiryTime}}" id="edit-expiry-{{.ID}}">
+											<button type="button" class="minecraft-btn small" onclick="window.openEditItemModal({{.ID}}, '{{.Name}}', '{{.Description}}', {{.Cost}}, {{.Stock}}, '{{.ExpiryTime}}')">编辑</button>
+										</form>
+										<form action="/delete_item" method="post" style="display: inline;" id="delete-item-form-{{.ID}}">
+											<input type="hidden" name="item_id" value="{{.ID}}">
+											<button type="submit" class="minecraft-btn small danger" onclick="return confirm('确定要删除这个物品吗？')">删除</button>
+										</form>
 								</td>
 							</tr>
 							{{end}}
