@@ -160,28 +160,49 @@ function speakText(text, onStart, onEnd, onError) {
 			console.log('朗读恢复');
 		};
 
-		// 优化语音选择逻辑，更好地适应iOS
+		// 优化语音选择逻辑，确保优先使用普通话语音
 		let selectedVoice = null;
 		
-		// 1. 尝试选择中文语音
+		// 1. 尝试选择中文语音，优先普通话(zh-CN)，避免选择粤语
 		if (availableVoices.length > 0) {
-			// 优先选择本地服务语音（在iOS上可能更可靠）
+			console.log('开始选择语音，可用语音数:', availableVoices.length);
+			
+			// 第一步：严格匹配普通话语音
+			// 优先选择明确标记为zh-CN且不是粤语的本地语音
 			selectedVoice = availableVoices.find(voice => 
 				voice.localService && 
-				(voice.lang === 'zh-CN' || voice.lang === 'zh-Hans-CN')
+				voice.lang === 'zh-CN' && 
+				!voice.name.includes('Cantonese') && 
+				!voice.name.includes('粵語') && 
+				!voice.name.includes('粤语')
 			);
 			
-			// 如果没找到本地中文语音，尝试其他中文语音
 			if (!selectedVoice) {
+				console.log('未找到严格匹配的普通话本地语音，尝试其他zh-CN语音');
+				// 第二步：尝试任何zh-CN语音
 				selectedVoice = availableVoices.find(voice => 
-					voice.lang.includes('zh') || 
-					voice.name.includes('Chinese') || 
-					voice.name.includes('中文')
+					voice.lang === 'zh-CN' && 
+					!voice.name.includes('Cantonese') && 
+					!voice.name.includes('粵語') && 
+					!voice.name.includes('粤语')
+				);
+			}
+			
+			if (!selectedVoice) {
+				console.log('未找到zh-CN语音，尝试其他中文语音，但排除粤语');
+				// 第三步：尝试其他中文语音，但明确排除粤语
+				selectedVoice = availableVoices.find(voice => 
+					(voice.lang.includes('zh') && !voice.lang.includes('HK') && !voice.lang.includes('TW')) || 
+					(voice.name.includes('Chinese') && !voice.name.includes('Cantonese') && !voice.name.includes('粵語') && !voice.name.includes('粤语')) ||
+					(voice.name.includes('中文') && !voice.name.includes('粵語') && !voice.name.includes('粤语')) ||
+					voice.name.includes('Mandarin') ||
+					voice.name.includes('普通话')
 				);
 			}
 			
 			// 如果还没找到，使用第一个可用语音
-			if (!selectedVoice) {
+			if (!selectedVoice && availableVoices.length > 0) {
+				console.log('未找到合适的中文语音，使用第一个可用语音');
 				selectedVoice = availableVoices[0];
 			}
 			
