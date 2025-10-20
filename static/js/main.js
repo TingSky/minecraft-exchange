@@ -134,11 +134,10 @@ function speakText(text, onStart, onEnd, onError) {
 		// 创建SpeechSynthesisUtterance实例
 		const utterance = new SpeechSynthesisUtterance(text);
 
-		// 设置基本属性 - 简化设置以提高兼容性
+		// 简化设置，提高兼容性
 		utterance.lang = 'zh-CN';
 		utterance.rate = 0.9;
 		utterance.volume = 1.0;
-		// 在iOS上不设置pitch，避免兼容性问题
 
 		// 添加事件监听器
 		utterance.onstart = function(event) {
@@ -147,77 +146,72 @@ function speakText(text, onStart, onEnd, onError) {
 		};
 		utterance.onend = function(event) {
 			console.log('朗读结束事件触发');
+			clearTimeout(checkIfSpeaking);
 			if (onEnd) onEnd(event);
 		};
 		utterance.onerror = function(event) {
 			console.error('朗读错误事件触发:', event.error);
+			clearTimeout(checkIfSpeaking);
 			if (onError) onError(new Error(event.error));
 		};
-		utterance.onpause = function() {
-			console.log('朗读暂停');
-		};
-		utterance.onresume = function() {
-			console.log('朗读恢复');
-		};
 
-		// 优化语音选择逻辑，更好地适应iOS
-		let selectedVoice = null;
-		
-		// 1. 尝试选择中文语音
-		if (availableVoices.length > 0) {
-			// 优先选择本地服务语音（在iOS上可能更可靠）
-			selectedVoice = availableVoices.find(voice => 
-				voice.localService && 
-				(voice.lang === 'zh-CN' || voice.lang === 'zh-Hans-CN')
-			);
-			
-			// 如果没找到本地中文语音，尝试其他中文语音
-			if (!selectedVoice) {
-				selectedVoice = availableVoices.find(voice => 
-					voice.lang.includes('zh') || 
-					voice.name.includes('Chinese') || 
-					voice.name.includes('中文')
-				);
-			}
-			
-			// 如果还没找到，使用第一个可用语音
-			if (!selectedVoice) {
-				selectedVoice = availableVoices[0];
-			}
-			
-			// 设置语音
-			try {
-				utterance.voice = selectedVoice;
-				console.log('使用语音:', selectedVoice.name, selectedVoice.lang, selectedVoice.localService);
-			} catch (voiceError) {
-				console.warn('设置语音失败:', voiceError);
-				// 即使设置语音失败，也继续尝试朗读
-			}
-		}
-
-		// 开始朗读 - 使用try-catch确保在任何情况下都不会崩溃
+		// 简单的语音选择逻辑，避免过于复杂的判断
+		// 在iPad/iOS上，我们先尝试使用系统默认语音，如果不行再尝试其他方法
 		console.log('开始朗读文本:', text);
+		
+		// 尝试直接朗读，使用默认设置
 		speechSynthesis.speak(utterance);
 		
-		// iOS特殊处理：如果语音没有立即播放，尝试一个简短的延迟后再次触发
+		// iOS特殊处理：监控朗读状态并提供后备方案
 		const checkIfSpeaking = setTimeout(() => {
 			if (!speechSynthesis.speaking) {
-				console.log('检测到未开始朗读，尝试再次触发...');
-				// 再次尝试，但这次不设置voice属性，使用系统默认
+				console.log('检测到未开始朗读，尝试使用后备方案...');
+				// 取消当前朗读
 				speechSynthesis.cancel();
-				const fallbackUtterance = new SpeechSynthesisUtterance(text);
-				fallbackUtterance.lang = 'zh-CN';
-				fallbackUtterance.rate = 0.9;
-				fallbackUtterance.volume = 1.0;
-				speechSynthesis.speak(fallbackUtterance);
+				
+				// 后备方案1: 不设置lang，让系统自动选择
+				const fallbackUtterance1 = new SpeechSynthesisUtterance(text);
+				fallbackUtterance1.rate = 0.9;
+				fallbackUtterance1.volume = 1.0;
+				
+				// 添加错误处理到后备方案
+				fallbackUtterance1.onerror = function(event) {
+					console.error('后备方案1朗读错误:', event.error);
+					clearTimeout(checkFallback);
+					if (onError) onError(new Error('所有朗读方案失败'));
+				};
+				
+				fallbackUtterance1.onend = function(event) {
+					clearTimeout(checkFallback);
+					if (onEnd) onEnd(event);
+				};
+				
+				speechSynthesis.speak(fallbackUtterance1);
+				
+				// 再次检查后备方案是否成功
+				const checkFallback = setTimeout(() => {
+					if (!speechSynthesis.speaking) {
+						console.log('后备方案1也失败，尝试最后方案...');
+						speechSynthesis.cancel();
+						
+						// 最后方案: 分段朗读，避免长文本问题
+						const fallbackUtterance2 = new SpeechSynthesisUtterance(text.substring(0, 200));
+						fallbackUtterance2.rate = 0.9;
+						fallbackUtterance2.volume = 1.0;
+						
+						fallbackUtterance2.onerror = function() {
+							if (onError) onError(new Error('所有朗读方案失败'));
+						};
+						
+						fallbackUtterance2.onend = function() {
+							if (onEnd) onEnd();
+						};
+						
+						speechSynthesis.speak(fallbackUtterance2);
+					}
+				}, 500);
 			}
 		}, 500);
-		
-		// 清除定时器
-		utterance.onend = function(event) {
-			clearTimeout(checkIfSpeaking);
-			if (onEnd) onEnd(event);
-		};
 		
 	} catch (error) {
 		console.error('朗读过程中发生错误:', error);
