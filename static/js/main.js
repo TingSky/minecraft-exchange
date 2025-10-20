@@ -30,14 +30,14 @@ function updateTaskCountdowns() {
 				const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 				const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 				
-				// 格式化显示，确保所有时间单位都显示两位数
+				// 格式化显示为1天3小时5分15秒的形式
 				let timeLeft = '';
 				if (days > 0) {
 					timeLeft += days + '天';
 				}
-				timeLeft += hours.toString().padStart(2, '0') + '时';
-				timeLeft += minutes.toString().padStart(2, '0') + '分';
-				timeLeft += seconds.toString().padStart(2, '0') + '秒';
+				timeLeft += hours + '小时';
+				timeLeft += minutes + '分';
+				timeLeft += seconds + '秒';
 				element.textContent = '剩余: ' + timeLeft;
 			}
 		}
@@ -74,6 +74,77 @@ function formatTaskStartTimes() {
 	});
 }
 
+// 全局变量保存可用语音列表
+let availableVoices = [];
+
+// 预加载语音列表
+function loadVoices() {
+	if ('speechSynthesis' in window) {
+		// 获取语音列表
+		availableVoices = speechSynthesis.getVoices();
+		console.log('预加载语音列表，可用语音数量:', availableVoices.length);
+		
+		// 等待voiceschanged事件确保语音加载完成
+		speechSynthesis.onvoiceschanged = () => {
+			availableVoices = speechSynthesis.getVoices();
+			console.log('语音列表更新，可用语音数量:', availableVoices.length);
+		};
+	}
+}
+
+// 简单的朗读函数
+function speakText(text, onStart, onEnd, onError) {
+	if (!('speechSynthesis' in window)) {
+		console.error('浏览器不支持Web Speech API');
+		if (onError) onError(new Error('浏览器不支持Web Speech API'));
+		return;
+	}
+
+	// 取消任何正在进行的朗读
+	speechSynthesis.cancel();
+
+	// 创建SpeechSynthesisUtterance实例
+	const utterance = new SpeechSynthesisUtterance(text);
+
+	// 设置基本属性
+	utterance.lang = 'zh-CN';
+	utterance.rate = 0.9; // 稍慢一点以便更清晰
+	utterance.volume = 1.0;
+	utterance.pitch = 1.0;
+
+	// 添加事件监听器
+	if (onStart) {
+		utterance.onstart = onStart;
+	}
+	if (onEnd) {
+		utterance.onend = onEnd;
+	}
+	if (onError) {
+		utterance.onerror = onError;
+	}
+
+	// 尝试设置语音
+	const chineseVoice = availableVoices.find(voice => 
+		voice.lang.includes('zh') || 
+		voice.name.includes('Chinese') || 
+		voice.name.includes('中文') ||
+		voice.localService
+	);
+
+	if (chineseVoice) {
+		utterance.voice = chineseVoice;
+		console.log('使用语音:', chineseVoice.name, chineseVoice.lang);
+	} else if (availableVoices.length > 0) {
+		// 使用第一个可用语音
+		utterance.voice = availableVoices[0];
+		console.log('使用默认语音:', availableVoices[0].name, availableVoices[0].lang);
+	}
+
+	// 开始朗读
+	console.log('开始朗读文本:', text);
+	speechSynthesis.speak(utterance);
+}
+
 // 页面加载完成后执行
 window.addEventListener('DOMContentLoaded', function() {
 	// 初始化任务倒计时
@@ -100,6 +171,43 @@ window.addEventListener('DOMContentLoaded', function() {
 		// 在实际应用中应该添加CSRF令牌
 		form.addEventListener('submit', function() {
 			// 可以在这里添加加载状态
+		});
+	});
+
+	// 预加载语音列表
+	loadVoices();
+
+	// 实现Web Speech API朗读功能
+	const readAloudButtons = document.querySelectorAll('.read-aloud-btn');
+	readAloudButtons.forEach(button => {
+		button.addEventListener('click', function() {
+			console.log('朗读按钮被点击');
+			// 获取要朗读的文本
+			const text = this.getAttribute('data-text');
+			console.log('要朗读的文本:', text);
+			
+			if (text) {
+				const originalText = button.textContent;
+				button.textContent = '⏳'; // 显示加载状态
+				
+				// 使用封装的朗读函数
+				speakText(
+					text,
+					() => {
+						console.log('朗读开始');
+						button.textContent = '🔊';
+					},
+					() => {
+						console.log('朗读完成');
+						button.textContent = '🔊';
+					},
+					(error) => {
+						console.error('朗读出错:', error);
+						button.textContent = '🔊';
+						alert('朗读时出错: ' + (error.message || error));
+					}
+				);
+			}
 		});
 	});
 });

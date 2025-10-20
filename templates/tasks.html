@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>任务中心 - 我的世界任务积分兑换系统</title>
-	<link rel="stylesheet" href="/static/css/style.css">
-</head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>任务中心 - 我的世界任务积分兑换系统</title>
+		<link rel="stylesheet" href="/static/css/style.css">
+		<script src="/static/js/main.js" defer></script>
+	</head>
 <body>
 	<div class="minecraft-container">
 		<header class="minecraft-header">
@@ -33,13 +34,13 @@
 					{{range .Tasks}}
 					<div class="task-card difficulty-{{.Difficulty}}">
 						<div class="task-header">
-							<h3>{{.Title}}</h3>
+							<h3>{{.Title}} <button class="read-aloud-btn" data-text="{{.Title}}" title="朗读标题">🔊</button></h3>
 							<div class="task-reward">
 								<img src="/static/images/image.png" alt="绿宝石">
 								<span>{{.Reward}}</span>
 							</div>
 						</div>
-						<p class="task-description">{{.Description}}</p>
+						<p class="task-description">{{.Description}} <button class="read-aloud-btn" data-text="{{.Description}}" title="朗读描述">🔊</button></p>
 						<div class="task-details">
 							<span class="task-type">
 								{{if eq .Type "daily"}}日常任务{{else if eq .Type "limited"}}限时任务{{end}}
@@ -69,13 +70,13 @@
 					{{range .ClaimedTasks}}
 					<div class="task-card claimed">
 						<div class="task-header">
-							<h3>{{.Title}}</h3>
+							<h3>{{.Title}} <button class="read-aloud-btn" data-text="{{.Title}}" title="朗读标题">🔊</button></h3>
 							<div class="task-reward">
 								<img src="/static/images/image.png" alt="绿宝石">
 								<span>{{.Reward}}</span>
 							</div>
 						</div>
-						<p class="task-description">{{.Description}}</p>
+						<p class="task-description">{{.Description}} <button class="read-aloud-btn" data-text="{{.Description}}" title="朗读描述">🔊</button></p>
 						<div class="task-details">
 							<span class="task-type">
 								{{if eq .Type "daily"}}日常任务{{else if eq .Type "limited"}}限时任务{{end}}
@@ -119,13 +120,13 @@
 					{{range .UpcomingTasks}}
 					<div class="task-card upcoming difficulty-{{.Difficulty}}">
 						<div class="task-header">
-							<h3>{{.Title}}</h3>
+							<h3>{{.Title}} <button class="read-aloud-btn" data-text="{{.Title}}" title="朗读标题">🔊</button></h3>
 							<div class="task-reward">
 								<img src="/static/images/image.png" alt="绿宝石">
 								<span>{{.Reward}}</span>
 							</div>
 						</div>
-						<p class="task-description">{{.Description}}</p>
+						<p class="task-description">{{.Description}} <button class="read-aloud-btn" data-text="{{.Description}}" title="朗读描述">🔊</button></p>
 						<div class="task-details">
 							<span class="task-type">
 								{{if eq .Type "daily"}}日常任务{{else if eq .Type "limited"}}限时任务{{end}}

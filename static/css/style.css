@@ -11,6 +11,27 @@ body {
 	font-family: 'Minecraft', Arial, sans-serif;
 	background-color: #8B4513;
 	/* Removed non-existent stone.png background image */
+
+/* 朗读按钮样式 */
+.read-aloud-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  margin-left: 5px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+}
+
+.read-aloud-btn:hover {
+  background-color: rgba(0, 128, 0, 0.1);
+  transform: scale(1.1);
+}
+
+.read-aloud-btn:active {
+  transform: scale(0.95);
+}
 	color: #FFFFFF;
 	line-height: 1.6;
 }
