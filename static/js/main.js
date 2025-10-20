@@ -76,73 +76,153 @@ function formatTaskStartTimes() {
 
 // 全局变量保存可用语音列表
 let availableVoices = [];
+let voicesLoaded = false;
 
-// 预加载语音列表
+// 预加载语音列表 - 优化版本
 function loadVoices() {
 	if ('speechSynthesis' in window) {
-		// 获取语音列表
-		availableVoices = speechSynthesis.getVoices();
-		console.log('预加载语音列表，可用语音数量:', availableVoices.length);
+		// 首次尝试获取语音列表
+		updateVoicesList();
 		
 		// 等待voiceschanged事件确保语音加载完成
 		speechSynthesis.onvoiceschanged = () => {
-			availableVoices = speechSynthesis.getVoices();
-			console.log('语音列表更新，可用语音数量:', availableVoices.length);
+			updateVoicesList();
 		};
+		
+		// 额外的超时重试机制，确保在iOS上也能获取到语音
+		setTimeout(() => {
+			if (!voicesLoaded) {
+				console.log('尝试重新加载语音列表...');
+				updateVoicesList();
+			}
+		}, 1000);
 	}
 }
 
-// 简单的朗读函数
+// 更新语音列表的辅助函数
+function updateVoicesList() {
+	try {
+		const voices = speechSynthesis.getVoices();
+		availableVoices = voices;
+		voicesLoaded = voices.length > 0;
+		console.log('语音列表更新，可用语音数量:', voices.length);
+		// 打印所有可用语音信息，方便调试
+		voices.forEach((voice, index) => {
+			console.log(`语音 ${index}:`, voice.name, voice.lang, voice.localService);
+		});
+	} catch (error) {
+		console.error('获取语音列表时出错:', error);
+	}
+}
+
+// 优化的朗读函数，兼容iPad/iOS
 function speakText(text, onStart, onEnd, onError) {
 	if (!('speechSynthesis' in window)) {
-		console.error('浏览器不支持Web Speech API');
-		if (onError) onError(new Error('浏览器不支持Web Speech API'));
+		const error = new Error('浏览器不支持Web Speech API');
+		console.error(error.message);
+		if (onError) onError(error);
 		return;
 	}
 
-	// 取消任何正在进行的朗读
-	speechSynthesis.cancel();
+	try {
+		// 取消任何正在进行的朗读
+		speechSynthesis.cancel();
 
-	// 创建SpeechSynthesisUtterance实例
-	const utterance = new SpeechSynthesisUtterance(text);
+		// 重新获取语音列表（iOS可能需要在每次使用前重新获取）
+		updateVoicesList();
 
-	// 设置基本属性
-	utterance.lang = 'zh-CN';
-	utterance.rate = 0.9; // 稍慢一点以便更清晰
-	utterance.volume = 1.0;
-	utterance.pitch = 1.0;
+		// 创建SpeechSynthesisUtterance实例
+		const utterance = new SpeechSynthesisUtterance(text);
 
-	// 添加事件监听器
-	if (onStart) {
-		utterance.onstart = onStart;
+		// 设置基本属性 - 简化设置以提高兼容性
+		utterance.lang = 'zh-CN';
+		utterance.rate = 0.9;
+		utterance.volume = 1.0;
+		// 在iOS上不设置pitch，避免兼容性问题
+
+		// 添加事件监听器
+		utterance.onstart = function(event) {
+			console.log('朗读开始事件触发');
+			if (onStart) onStart(event);
+		};
+		utterance.onend = function(event) {
+			console.log('朗读结束事件触发');
+			if (onEnd) onEnd(event);
+		};
+		utterance.onerror = function(event) {
+			console.error('朗读错误事件触发:', event.error);
+			if (onError) onError(new Error(event.error));
+		};
+		utterance.onpause = function() {
+			console.log('朗读暂停');
+		};
+		utterance.onresume = function() {
+			console.log('朗读恢复');
+		};
+
+		// 优化语音选择逻辑，更好地适应iOS
+		let selectedVoice = null;
+		
+		// 1. 尝试选择中文语音
+		if (availableVoices.length > 0) {
+			// 优先选择本地服务语音（在iOS上可能更可靠）
+			selectedVoice = availableVoices.find(voice => 
+				voice.localService && 
+				(voice.lang === 'zh-CN' || voice.lang === 'zh-Hans-CN')
+			);
+			
+			// 如果没找到本地中文语音，尝试其他中文语音
+			if (!selectedVoice) {
+				selectedVoice = availableVoices.find(voice => 
+					voice.lang.includes('zh') || 
+					voice.name.includes('Chinese') || 
+					voice.name.includes('中文')
+				);
+			}
+			
+			// 如果还没找到，使用第一个可用语音
+			if (!selectedVoice) {
+				selectedVoice = availableVoices[0];
+			}
+			
+			// 设置语音
+			try {
+				utterance.voice = selectedVoice;
+				console.log('使用语音:', selectedVoice.name, selectedVoice.lang, selectedVoice.localService);
+			} catch (voiceError) {
+				console.warn('设置语音失败:', voiceError);
+				// 即使设置语音失败，也继续尝试朗读
+			}
+		}
+
+		// 开始朗读 - 使用try-catch确保在任何情况下都不会崩溃
+		console.log('开始朗读文本:', text);
+		speechSynthesis.speak(utterance);
+		
+		// iOS特殊处理：如果语音没有立即播放，尝试一个简短的延迟后再次触发
+		const checkIfSpeaking = setTimeout(() => {
+			if (!speechSynthesis.speaking) {
+				console.log('检测到未开始朗读，尝试再次触发...');
+				// 再次尝试，但这次不设置voice属性，使用系统默认
+				speechSynthesis.cancel();
+				const fallbackUtterance = new SpeechSynthesisUtterance(text);
+				fallbackUtterance.lang = 'zh-CN';
+				fallbackUtterance.rate = 0.9;
+				fallbackUtterance.volume = 1.0;
+				speechSynthesis.speak(fallbackUtterance);
+			}
+		}, 500);
+		
+		// 清除定时器
+		utterance.onend = function(event) {
+			clearTimeout(checkIfSpeaking);
+			if (onEnd) onEnd(event);
+		};
+		
+	} catch (error) {
+		console.error('朗读过程中发生错误:', error);
+		if (onError) onError(error);
 	}
-	if (onEnd) {
-		utterance.onend = onEnd;
-	}
-	if (onError) {
-		utterance.onerror = onError;
-	}
-
-	// 尝试设置语音
-	const chineseVoice = availableVoices.find(voice => 
-		voice.lang.includes('zh') || 
-		voice.name.includes('Chinese') || 
-		voice.name.includes('中文') ||
-		voice.localService
-	);
-
-	if (chineseVoice) {
-		utterance.voice = chineseVoice;
-		console.log('使用语音:', chineseVoice.name, chineseVoice.lang);
-	} else if (availableVoices.length > 0) {
-		// 使用第一个可用语音
-		utterance.voice = availableVoices[0];
-		console.log('使用默认语音:', availableVoices[0].name, availableVoices[0].lang);
-	}
-
-	// 开始朗读
-	console.log('开始朗读文本:', text);
-	speechSynthesis.speak(utterance);
 }
 
 // 页面加载完成后执行
