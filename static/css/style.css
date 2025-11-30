@@ -399,19 +399,42 @@ body {
 	padding: 20px;
 	display: flex;
 	gap: 15px;
+	flex-direction: row;
+}
+
+.item-column {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+}
+
+.item-column:first-child {
+	flex: 0 0 auto;
 }
 
 .item-image {
-	flex-shrink: 0;
+	text-align: center;
 }
 
 .item-image img {
 	width: 80px;
 	height: 80px;
+	margin-bottom: 5px;
+}
+
+.item-image .read-aloud-btn {
+	margin-left: 0;
+	margin-top: 5px;
 }
 
 .item-info {
 	flex: 1;
+	display: flex;
+	flex-direction: column;
+}
+
+.item-action {
+	margin-left: auto;
 }
 
 .item-info h3 {

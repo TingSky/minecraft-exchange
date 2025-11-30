@@ -46,29 +46,35 @@
 				<div class="item-grid">
 					{{range .Items}}
 					<div class="item-card">
-						<div class="item-image">
-							<img src="/static/images/item_{{.ID}}.svg" alt="{{.Name}}" onError="this.src='/static/images/default_item.svg'">
-						</div>
-						<div class="item-info">
-							<h3>{{.Name}}</h3>
-							<p class="item-description">{{.Description}}</p>
-							<div class="item-cost">
-								<img src="/static/images/image.png" alt="绿宝石">
-								<span>{{.Cost}}</span>
+						<div class="item-column">
+							<div class="item-image">
+								<img src="/static/images/item_{{.ID}}.svg" alt="{{.Name}}" onError="this.src='/static/images/default_item.svg'">
 							</div>
-							<div class="item-stock">
-								库存: {{.Stock}}
+							<div class="item-action">
+								<form action="/exchange" method="post">
+									<input type="hidden" name="item_id" value="{{.ID}}">
+									<button type="submit" class="minecraft-btn" {{if lt $.Emeralds .Cost}}disabled{{end}}>
+										{{if lt $.Emeralds .Cost}}绿宝石不足{{else}}立即兑换{{end}}
+									</button>
+								</form>
 							</div>
-							<div class="item-expiry">
-                                有效期至: <script>document.write(formatDateTime('{{.ExpiryTime}}'))</script>
-                            </div>
 						</div>
-						<form action="/exchange" method="post" class="item-action">
-							<input type="hidden" name="item_id" value="{{.ID}}">
-							<button type="submit" class="minecraft-btn" {{if lt $.Emeralds .Cost}}disabled{{end}}>
-								{{if lt $.Emeralds .Cost}}绿宝石不足{{else}}立即兑换{{end}}
-							</button>
-						</form>
+						<div class="item-column">
+							<div class="item-info">
+								<h3>{{.Name}}<button class="read-aloud-btn" data-text="{{.Name}}" title="朗读名称">🔊</button></h3>
+								<p class="item-description">{{.Description}}<button class="read-aloud-btn" data-text="{{.Description}}" title="朗读名称">🔊</button></p>
+								<div class="item-cost">
+									<img src="/static/images/image.png" alt="绿宝石">
+									<span>{{.Cost}}</span>
+								</div>
+								<div class="item-stock">
+									库存: {{.Stock}}
+								</div>
+								<div class="item-expiry">
+                                    有效期至: <script>document.write(formatDateTime('{{.ExpiryTime}}'))</script>
+                                </div>
+							</div>
+						</div>
 					</div>
 					{{end}}
 					{{if not .Items}}
