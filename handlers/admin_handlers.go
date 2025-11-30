@@ -10,8 +10,84 @@ import (
 	"minecraft-exchange/utils"
 )
 
+// 获取管理员数据的JSON接口
+func GetAdminDataHandler(w http.ResponseWriter, r *http.Request) {
+	// 检查是否已登录
+	cookie, err := r.Cookie("session_token")
+	if err != nil || cookie.Value == "" {
+		// 未登录，返回JSON响应
+		utils.SendJSONResponse(w, http.StatusUnauthorized, utils.JSONResponse{
+			Success: false,
+			Message: "未登录，请先登录",
+			Redirect: "/login",
+		})
+		return
+	}
+
+	// 查询所有任务
+	tasks, err := models.GetAllTasks()
+	if err != nil {
+		log.Println("查询任务失败:", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, utils.JSONResponse{
+			Success: false,
+			Message: "服务器错误",
+		})
+		return
+	}
+
+	// 查询所有任务模板
+	taskTemplates, err := models.GetAllTaskTemplates()
+	if err != nil {
+		log.Println("查询任务模板失败:", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, utils.JSONResponse{
+			Success: false,
+			Message: "服务器错误",
+		})
+		return
+	}
+
+	// 查询所有兑换记录
+	exchangeRecords, err := models.GetAllExchangeRecords()
+	if err != nil {
+		log.Println("查询兑换记录失败:", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, utils.JSONResponse{
+			Success: false,
+			Message: "服务器错误",
+		})
+		return
+	}
+
+	// 查询所有物品
+	items, err := models.GetAllItems()
+	if err != nil {
+		log.Println("查询物品失败:", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, utils.JSONResponse{
+			Success: false,
+			Message: "服务器错误",
+		})
+		return
+	}
+
+	// 返回JSON响应
+	utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"Tasks":           tasks,
+			"TaskTemplates":   taskTemplates,
+			"ExchangeRecords": exchangeRecords,
+			"Items":           items,
+		},
+	})
+}
+
 // 管理员页面处理器
 func AdminHandler(w http.ResponseWriter, r *http.Request) {
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		GetAdminDataHandler(w, r)
+		return
+	}
+
 	// 检查是否已登录
 	cookie, err := r.Cookie("session_token")
 	if err != nil || cookie.Value == "" {
@@ -110,16 +186,36 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			http.SetCookie(w, &cookie)
 
-			// 重定向到管理员页面
-			http.Redirect(w, r, "/admin", http.StatusFound)
+			// 检查是否为AJAX请求
+			if utils.IsAJAXRequest(r) {
+				// 返回JSON响应
+				utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+					Success: true,
+					Message: "登录成功",
+					Redirect: "/admin",
+				})
+			} else {
+				// 重定向到管理员页面
+				http.Redirect(w, r, "/admin", http.StatusFound)
+			}
 			return
 		} else {
-			// 登录失败，显示错误信息
-			tmpl, _ := template.ParseFiles("templates/login.html")
-			data := map[string]interface{}{
-				"Error": "密码错误",
+			// 登录失败
+			// 检查是否为AJAX请求
+			if utils.IsAJAXRequest(r) {
+				// 返回JSON响应
+				utils.SendJSONResponse(w, http.StatusBadRequest, utils.JSONResponse{
+					Success: false,
+					Message: "密码错误",
+				})
+			} else {
+				// 显示错误信息
+				tmpl, _ := template.ParseFiles("templates/login.html")
+				data := map[string]interface{}{
+					"Error": "密码错误",
+				}
+				tmpl.Execute(w, data)
 			}
-			tmpl.Execute(w, data)
 			return
 		}
 	}
@@ -139,14 +235,31 @@ func RefreshDailyTasksHandler(w http.ResponseWriter, r *http.Request) {
 	// 检查是否已登录
 	cookie, err := r.Cookie("session_token")
 	if err != nil || cookie.Value == "" {
-		// 未登录，重定向到登录页面
-		http.Redirect(w, r, "/login", http.StatusFound)
+		// 未登录，检查是否为AJAX请求
+		if utils.IsAJAXRequest(r) {
+			utils.SendJSONResponse(w, http.StatusUnauthorized, utils.JSONResponse{
+				Success: false,
+				Message: "未登录，请先登录",
+				Redirect: "/login",
+			})
+		} else {
+			http.Redirect(w, r, "/login", http.StatusFound)
+		}
 		return
 	}
 
 	// 调用刷新日常任务函数
 	utils.RefreshDailyTasks()
 
-	// 刷新成功后重定向回管理员页面
-	http.Redirect(w, r, "/admin", http.StatusFound)
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+			Success: true,
+			Message: "日常任务刷新成功",
+			Refresh: true,
+		})
+	} else {
+		// 刷新成功后重定向回管理员页面
+		http.Redirect(w, r, "/admin", http.StatusFound)
+	}
 }

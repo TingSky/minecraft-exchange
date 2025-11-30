@@ -4,13 +4,44 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"log"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"minecraft-exchange/models"
 )
+
+// JSONResponse 是通用的JSON响应结构体
+type JSONResponse struct {
+	Success  bool   `json:"success"`
+	Message  string `json:"message,omitempty"`
+	Data     any    `json:"data,omitempty"`
+	Redirect string `json:"redirect,omitempty"`
+	Refresh  bool   `json:"refresh,omitempty"`
+}
+
+// SendJSONResponse 发送JSON响应
+func SendJSONResponse(w http.ResponseWriter, statusCode int, response JSONResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(response)
+}
+
+// IsAJAXRequest 检查是否为AJAX请求
+func IsAJAXRequest(r *http.Request) bool {
+	// 检查X-Requested-With头
+	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
+		return true
+	}
+	// 检查Accept头是否包含application/json
+	if strings.Contains(r.Header.Get("Accept"), "application/json") {
+		return true
+	}
+	return false
+}
 
 // 生成安全随机字符串的函数
 func GenerateSecureToken(length int) string {

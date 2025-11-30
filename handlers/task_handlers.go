@@ -13,8 +13,70 @@ import (
 	"minecraft-exchange/utils"
 )
 
+// 获取任务数据的JSON接口
+func GetTasksDataHandler(w http.ResponseWriter, r *http.Request) {
+	// 获取可用任务
+	tasks, err := models.GetAvailableTasks()
+	if err != nil {
+		log.Println("查询任务失败:", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, utils.JSONResponse{
+			Success: false,
+			Message: "服务器错误",
+		})
+		return
+	}
+
+	// 获取玩家已领取任务
+	playerID, err := models.GetFirstPlayerID()
+	if err != nil {
+		log.Println("获取玩家ID失败:", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, utils.JSONResponse{
+			Success: false,
+			Message: "服务器错误",
+		})
+		return
+	}
+
+	claimedTasks, err := models.GetPlayerClaimedTasks(playerID)
+	if err != nil {
+		log.Println("查询已领取任务失败:", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, utils.JSONResponse{
+			Success: false,
+			Message: "服务器错误",
+		})
+		return
+	}
+
+	// 获取即将开始的任务
+	upcomingTasks, err := models.GetUpcomingTasks()
+	if err != nil {
+		log.Println("查询即将开始任务失败:", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, utils.JSONResponse{
+			Success: false,
+			Message: "服务器错误",
+		})
+		return
+	}
+
+	// 返回JSON响应
+	utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"AvailableTasks": tasks,
+			"ClaimedTasks":   claimedTasks,
+			"UpcomingTasks":  upcomingTasks,
+		},
+	})
+}
+
 // 任务页面处理器
 func TasksHandler(w http.ResponseWriter, r *http.Request) {
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		GetTasksDataHandler(w, r)
+		return
+	}
+
 	tmpl, err := template.ParseFiles("templates/tasks.html")
 	if err != nil {
 		http.Error(w, "无法加载模板", http.StatusInternalServerError)
@@ -94,6 +156,39 @@ func ClaimTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 先获取任务信息，检查状态
+	task, err := models.GetTaskByID(taskID)
+	if err != nil {
+		log.Println("查询任务信息失败:", err)
+		http.Error(w, "服务器错误", http.StatusInternalServerError)
+		return
+	}
+
+	// 检查任务状态
+	if task.Status != "available" {
+		// 任务已经被领取或已完成，返回友好消息
+		if utils.IsAJAXRequest(r) {
+			var statusMsg string
+			if task.Status == "claimed" {
+				statusMsg = "该任务已被领取"
+			} else if task.Status == "completed" {
+				statusMsg = "该任务已完成"
+			} else if task.Status == "verified" {
+				statusMsg = "该任务已验证"
+			} else {
+				statusMsg = "该任务无法领取"
+			}
+			utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+				Success: true,
+				Message: statusMsg,
+				Refresh: true,
+			})
+		} else {
+			http.Redirect(w, r, "/tasks", http.StatusFound)
+		}
+		return
+	}
+
 	// 获取第一个玩家ID
 	playerID, err := models.GetFirstPlayerID()
 	if err != nil {
@@ -110,8 +205,17 @@ func ClaimTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 领取成功后重定向回任务页面
-	http.Redirect(w, r, "/tasks", http.StatusFound)
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+			Success: true,
+			Message: "任务领取成功",
+			Refresh: true,
+		})
+	} else {
+		// 领取成功后重定向回任务页面
+		http.Redirect(w, r, "/tasks", http.StatusFound)
+	}
 }
 
 // 提交完成任务处理器
@@ -183,8 +287,17 @@ func CompleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 提交成功后重定向回任务页面
-	http.Redirect(w, r, "/tasks", http.StatusFound)
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+			Success: true,
+			Message: "任务提交成功，等待确认",
+			Refresh: true,
+		})
+	} else {
+		// 提交成功后重定向回任务页面
+		http.Redirect(w, r, "/tasks", http.StatusFound)
+	}
 }
 
 // 验证任务完成并发放奖励处理器
@@ -192,8 +305,16 @@ func VerifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 	// 检查是否已登录
 	cookie, err := r.Cookie("session_token")
 	if err != nil || cookie.Value == "" {
-		// 未登录，重定向到登录页面
-		http.Redirect(w, r, "/login", http.StatusFound)
+		// 未登录，检查是否为AJAX请求
+		if utils.IsAJAXRequest(r) {
+			utils.SendJSONResponse(w, http.StatusUnauthorized, utils.JSONResponse{
+				Success:  false,
+				Message:  "未登录，请先登录",
+				Redirect: "/login",
+			})
+		} else {
+			http.Redirect(w, r, "/login", http.StatusFound)
+		}
 		return
 	}
 
@@ -218,7 +339,7 @@ func VerifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 先获取任务信息，检查状态和所有权
+	// 先获取任务信息，检查状态
 	task, err := models.GetTaskByID(taskID)
 	if err != nil {
 		log.Println("查询任务信息失败:", err)
@@ -226,8 +347,21 @@ func VerifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 检查任务状态是否为completed
-	if task.Status != "completed" {
+	// 检查任务状态
+	if task.Status == "verified" {
+		// 任务已经验证过，返回友好消息
+		if utils.IsAJAXRequest(r) {
+			utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+				Success: true,
+				Message: "该任务已确认完成",
+				Refresh: true,
+			})
+		} else {
+			http.Redirect(w, r, "/admin", http.StatusFound)
+		}
+		return
+	} else if task.Status != "completed" {
+		// 任务未完成，无法验证
 		http.Error(w, "该任务未完成，无法验证", http.StatusBadRequest)
 		return
 	}
@@ -257,8 +391,17 @@ func VerifyTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 验证成功后重定向回管理员页面
-	http.Redirect(w, r, "/admin", http.StatusFound)
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+			Success: true,
+			Message: "任务验证成功，奖励已发放",
+			Refresh: true,
+		})
+	} else {
+		// 验证成功后重定向回管理员页面
+		http.Redirect(w, r, "/admin", http.StatusFound)
+	}
 }
 
 // 创建任务模板处理器

@@ -8,10 +8,63 @@ import (
 	"time"
 
 	"minecraft-exchange/models"
+	"minecraft-exchange/utils"
 )
+
+// 获取商店数据的JSON接口
+func GetShopDataHandler(w http.ResponseWriter, r *http.Request) {
+	// 查询物品列表
+	items, err := models.GetAllItems()
+	if err != nil {
+		log.Println("查询物品失败:", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, utils.JSONResponse{
+			Success: false,
+			Message: "服务器错误",
+		})
+		return
+	}
+
+	// 获取第一个玩家ID
+	playerID, err := models.GetFirstPlayerID()
+	if err != nil {
+		log.Println("获取玩家ID失败:", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, utils.JSONResponse{
+			Success: false,
+			Message: "服务器错误",
+		})
+		return
+	}
+
+	// 查询玩家信息
+	player, err := models.GetPlayerInfo(playerID)
+	if err != nil {
+		log.Println("查询玩家信息失败:", err)
+		utils.SendJSONResponse(w, http.StatusInternalServerError, utils.JSONResponse{
+			Success: false,
+			Message: "服务器错误",
+		})
+		return
+	}
+
+	// 返回JSON响应
+	utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"PlayerName": player.Name,
+			"Emeralds":   player.Emeralds,
+			"Items":      items,
+		},
+	})
+}
 
 // 商店页面处理器
 func ShopHandler(w http.ResponseWriter, r *http.Request) {
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		GetShopDataHandler(w, r)
+		return
+	}
+
 	tmpl, err := template.ParseFiles("templates/shop.html")
 	if err != nil {
 		http.Error(w, "无法加载模板", http.StatusInternalServerError)
@@ -155,8 +208,17 @@ func ExchangeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 重定向到商店页面
-	http.Redirect(w, r, "/shop", http.StatusFound)
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+			Success: true,
+			Message: "物品兑换成功",
+			Refresh: true,
+		})
+	} else {
+		// 重定向到商店页面
+		http.Redirect(w, r, "/shop", http.StatusFound)
+	}
 }
 
 // 创建物品处理器
@@ -164,8 +226,16 @@ func CreateItemHandler(w http.ResponseWriter, r *http.Request) {
 	// 检查是否已登录
 	cookie, err := r.Cookie("session_token")
 	if err != nil || cookie.Value == "" {
-		// 未登录，重定向到登录页面
-		http.Redirect(w, r, "/login", http.StatusFound)
+		// 未登录，检查是否为AJAX请求
+		if utils.IsAJAXRequest(r) {
+			utils.SendJSONResponse(w, http.StatusUnauthorized, utils.JSONResponse{
+				Success: false,
+				Message: "未登录，请先登录",
+				Redirect: "/login",
+			})
+		} else {
+			http.Redirect(w, r, "/login", http.StatusFound)
+		}
 		return
 	}
 
@@ -218,8 +288,17 @@ func CreateItemHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 重定向到管理员页面
-	http.Redirect(w, r, "/admin", http.StatusFound)
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+			Success: true,
+			Message: "物品创建成功",
+			Refresh: true,
+		})
+	} else {
+		// 重定向到管理员页面
+		http.Redirect(w, r, "/admin", http.StatusFound)
+	}
 }
 
 // 删除物品处理器
@@ -227,8 +306,16 @@ func DeleteItemHandler(w http.ResponseWriter, r *http.Request) {
 	// 检查是否已登录
 	cookie, err := r.Cookie("session_token")
 	if err != nil || cookie.Value == "" {
-		// 未登录，重定向到登录页面
-		http.Redirect(w, r, "/login", http.StatusFound)
+		// 未登录，检查是否为AJAX请求
+		if utils.IsAJAXRequest(r) {
+			utils.SendJSONResponse(w, http.StatusUnauthorized, utils.JSONResponse{
+				Success: false,
+				Message: "未登录，请先登录",
+				Redirect: "/login",
+			})
+		} else {
+			http.Redirect(w, r, "/login", http.StatusFound)
+		}
 		return
 	}
 
@@ -261,8 +348,17 @@ func DeleteItemHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 重定向到管理员页面
-	http.Redirect(w, r, "/admin", http.StatusFound)
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+			Success: true,
+			Message: "物品删除成功",
+			Refresh: true,
+		})
+	} else {
+		// 重定向到管理员页面
+		http.Redirect(w, r, "/admin", http.StatusFound)
+	}
 }
 
 // 兑换奖励处理器
@@ -296,13 +392,17 @@ func ExchangeRewardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 如果没有错误，则表示更新成功
-	// 由于我们改变了UpdateExchangeRecordStatus函数的返回值，这里不再检查受影响的行数
-	// 如果有记录不存在，SQL语句也不会报错，只是不会更新任何记录
-	// 在实际应用中，可能需要先查询记录是否存在
-
-	// 处理成功后重定向回管理员页面
-	http.Redirect(w, r, "/admin", http.StatusFound)
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+			Success: true,
+			Message: "奖励兑换成功",
+			Refresh: true,
+		})
+	} else {
+		// 处理成功后重定向回管理员页面
+		http.Redirect(w, r, "/admin", http.StatusFound)
+	}
 }
 
 // 更新物品处理器
@@ -310,8 +410,16 @@ func UpdateItemHandler(w http.ResponseWriter, r *http.Request) {
 	// 检查是否已登录
 	cookie, err := r.Cookie("session_token")
 	if err != nil || cookie.Value == "" {
-		// 未登录，重定向到登录页面
-		http.Redirect(w, r, "/login", http.StatusFound)
+		// 未登录，检查是否为AJAX请求
+		if utils.IsAJAXRequest(r) {
+			utils.SendJSONResponse(w, http.StatusUnauthorized, utils.JSONResponse{
+				Success: false,
+				Message: "未登录，请先登录",
+				Redirect: "/login",
+			})
+		} else {
+			http.Redirect(w, r, "/login", http.StatusFound)
+		}
 		return
 	}
 
@@ -372,6 +480,15 @@ func UpdateItemHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 重定向到管理员页面
-	http.Redirect(w, r, "/admin", http.StatusFound)
+	// 检查是否为AJAX请求
+	if utils.IsAJAXRequest(r) {
+		utils.SendJSONResponse(w, http.StatusOK, utils.JSONResponse{
+			Success: true,
+			Message: "物品更新成功",
+			Refresh: true,
+		})
+	} else {
+		// 重定向到管理员页面
+		http.Redirect(w, r, "/admin", http.StatusFound)
+	}
 }

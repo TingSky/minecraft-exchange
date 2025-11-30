@@ -454,7 +454,7 @@ func GetAllTaskTemplates() ([]TaskTemplate, error) {
 func GetAllTasks() ([]Task, error) {
 	// 计算大前天的时间
 	threeDaysAgo := time.Now().AddDate(0, 0, -2).Format("2006-01-02 15:04:05")
-	rows, err := DB.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, status, player_id, COALESCE(template_id, 0) as template_id FROM tasks WHERE expiry_time > ? ORDER BY created_at DESC", threeDaysAgo)
+	rows, err := DB.Query("SELECT id, title, description, difficulty, type, reward, expiry_time, status, player_id, COALESCE(template_id, 0) as template_id FROM tasks WHERE (expiry_time > ? OR status = 'completed') ORDER BY created_at DESC", threeDaysAgo)
 	if err != nil {
 		return nil, err
 	}
